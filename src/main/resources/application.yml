@@ -1,0 +1,40 @@
+spring:
+  ai:
+    google:
+      genai:
+        api-key:
+    mcp:
+      server:
+        name: ledger-mcp-server
+        version: 1.0.0
+        streamable-http:
+          keep-alive-interval: 30s
+          mcp-endpoint: /mcp
+        protocol: streamable
+      client:
+        enabled: true
+        name: ledger-mcp-client
+        version: 1.0.0
+        request-timeout: 20s
+        streamable-http:
+          connections:
+            db-server:
+              url: http://localhost:9433
+              endpoint: /mcp
+  datasource:
+    # 配置默认的数据源
+    url:
+    username: ledger_test
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: HikariCP
+      maximum-pool-size: 10 # 连接池最大连接数
+      minimum-idle: 5 # 最小空闲连接数
+  jpa:
+    hibernate:
+      ddl-auto: update # 可以是 none、update、create、create-drop，根据需要选择
+    show-sql: true # 显示执行的 SQL 语句
+    open-in-view: false # 默认关闭，避免延迟加载相关问题
+server:
+  port: 9433
