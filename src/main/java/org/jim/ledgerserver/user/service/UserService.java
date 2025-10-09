@@ -3,9 +3,9 @@ package org.jim.ledgerserver.user.service;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.jim.ledgerserver.common.exception.BusinessException;
+import org.jim.ledgerserver.common.util.PasswordEncoder;
 import org.jim.ledgerserver.user.UserEntity;
 import org.jim.ledgerserver.user.repository.UserRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
