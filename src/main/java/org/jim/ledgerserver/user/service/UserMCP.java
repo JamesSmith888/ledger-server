@@ -2,7 +2,7 @@ package org.jim.ledgerserver.user.service;
 
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.jim.ledgerserver.user.UserEntity;
+import org.jim.ledgerserver.user.entity.UserEntity;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 

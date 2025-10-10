@@ -1,4 +1,4 @@
-package org.jim.ledgerserver.user;
+package org.jim.ledgerserver.user.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -1,8 +1,5 @@
 spring:
   ai:
-    google:
-      genai:
-        api-key:
     mcp:
       server:
         name: ledger-mcp-server
@@ -11,16 +8,6 @@ spring:
           keep-alive-interval: 30s
           mcp-endpoint: /mcp
         protocol: streamable
-      client:
-        enabled: true
-        name: ledger-mcp-client
-        version: 1.0.0
-        request-timeout: 20s
-        streamable-http:
-          connections:
-            db-server:
-              url: http://localhost:9433
-              endpoint: /mcp
   datasource:
     # 配置默认的数据源
     url:
@@ -35,6 +22,14 @@ spring:
     hibernate:
       ddl-auto: update # 可以是 none、update、create、create-drop，根据需要选择
     show-sql: true # 显示执行的 SQL 语句
-    open-in-view: false # 默认关闭，避免延迟加载相关问题
+    open-in-view: false # 默认关闭,避免延迟加载相关问题
+
+# JWT 配置
+jwt:
+  # 密钥（生产环境请使用更复杂的密钥，并通过环境变量配置）
+  secret: your-very-secure-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-algorithm-please-change-it-in-production
+  # 过期时间（单位：毫秒，默认 7 天）
+  expiration: 604800000
+
 server:
-  port: 9433
+  port: 9432

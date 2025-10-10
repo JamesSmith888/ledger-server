@@ -1,6 +1,6 @@
 package org.jim.ledgerserver.user.repository;
 
-import org.jim.ledgerserver.user.UserEntity;
+import org.jim.ledgerserver.user.entity.UserEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
