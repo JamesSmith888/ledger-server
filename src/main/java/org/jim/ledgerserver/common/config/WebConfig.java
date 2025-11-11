@@ -25,7 +25,13 @@ public class WebConfig implements WebMvcConfigurer {
                         // 排除不需要认证的路径
                         "/user/register",
                         "/user/login",
-                        "/error"
+                        "/error",
+                        //"/mcp",
+                        // 静态资源
+                        "/static/**",
+                        "/css/**",
+                        "/js/**",
+                        "/images/**"
                 );
     }
 }

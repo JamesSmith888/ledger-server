@@ -4,6 +4,7 @@ import org.jim.ledgerserver.ledger.entity.TransactionEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -17,7 +18,7 @@ import java.util.List;
  * @author James Smith
  */
 @Repository
-public interface TransactionRepository extends JpaRepository<TransactionEntity, Long> {
+public interface TransactionRepository extends JpaRepository<TransactionEntity, Long>, JpaSpecificationExecutor<TransactionEntity> {
 
     /**
      * 根据账本ID查找所有交易
@@ -66,6 +67,21 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
      */
     List<TransactionEntity> findByTransactionDateTimeBetweenAndCreatedByUserId(
             LocalDateTime startTime, LocalDateTime endTime, Long createdByUserId);
+
+    /**
+     * 根据分类ID查找交易
+     * @param categoryId 分类ID
+     * @return 交易列表
+     */
+    List<TransactionEntity> findByCategoryId(Long categoryId);
+
+    /**
+     * 根据分类ID和用户ID查找交易
+     * @param categoryId 分类ID
+     * @param createdByUserId 创建用户ID
+     * @return 交易列表
+     */
+    List<TransactionEntity> findByCategoryIdAndCreatedByUserId(Long categoryId, Long createdByUserId);
 
     /**
      * 查询指定账本的交易统计

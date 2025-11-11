@@ -3,6 +3,7 @@ package org.jim.ledgerserver.user.service;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.jim.ledgerserver.user.entity.UserEntity;
+import org.springaicommunity.mcp.annotation.McpTool;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,7 @@ public class UserMCP {
     private UserService userService;
 
 
-    @Tool(description = """
+    @McpTool(description = """
             Purpose: Minimal user registration with username and password
             
             Prerequisites:

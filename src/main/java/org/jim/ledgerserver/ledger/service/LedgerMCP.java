@@ -3,6 +3,7 @@ package org.jim.ledgerserver.ledger.service;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.jim.ledgerserver.ledger.entity.LedgerEntity;
+import org.springaicommunity.mcp.annotation.McpTool;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +21,7 @@ public class LedgerMCP {
     @Resource
     private LedgerService ledgerService;
 
-    @Tool(description = """
+    @McpTool(description = """
             Purpose: Create a new ledger for a user
             
             Prerequisites:
@@ -55,7 +56,7 @@ public class LedgerMCP {
         return String.format("账本创建成功: ID=%d, 名称=%s", ledger.getId(), ledger.getName());
     }
 
-    @Tool(description = """
+    @McpTool(description = """
             Purpose: Query ledger details by ledger ID
             
             Prerequisites:
@@ -79,7 +80,7 @@ public class LedgerMCP {
         return formatLedgerInfo(ledger);
     }
 
-    @Tool(description = """
+    @McpTool(description = """
             Purpose: Query all ledgers owned by a specific user
             
             Prerequisites:
@@ -100,17 +101,17 @@ public class LedgerMCP {
     public String listUserLedgers(Long ownerUserId) {
         log.info("Listing ledgers for user: {}", ownerUserId);
         List<LedgerEntity> ledgers = ledgerService.findByOwnerUserId(ownerUserId);
-        
+
         if (ledgers.isEmpty()) {
             return "该用户暂无账本";
         }
-        
+
         return ledgers.stream()
                 .map(this::formatLedgerInfo)
                 .collect(Collectors.joining("\n---\n"));
     }
 
-    @Tool(description = """
+    @McpTool(description = """
             Purpose: Update ledger information
             
             Prerequisites:
@@ -144,7 +145,7 @@ public class LedgerMCP {
         return String.format("账本更新成功: %s", formatLedgerInfo(ledger));
     }
 
-    @Tool(description = """
+    @McpTool(description = """
             Purpose: Delete a ledger (soft delete - mark as deleted)
             
             Prerequisites:

@@ -6,7 +6,10 @@ import org.jim.ledgerserver.common.exception.BusinessException;
 import org.jim.ledgerserver.common.util.JwtUtil;
 import org.jim.ledgerserver.common.util.PasswordEncoder;
 import org.jim.ledgerserver.common.util.UserContext;
+import org.jim.ledgerserver.user.dto.LoginRequest;
 import org.jim.ledgerserver.user.dto.LoginResponse;
+import org.jim.ledgerserver.user.dto.RegisterRequest;
+import org.jim.ledgerserver.user.dto.RegisterResponse;
 import org.jim.ledgerserver.user.entity.UserEntity;
 import org.jim.ledgerserver.user.repository.UserRepository;
 import org.springframework.stereotype.Component;
@@ -46,6 +49,110 @@ public class UserService {
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
         return userRepository.save(user);
+    }
+
+    /**
+     * 用户注册（支持用户名、邮箱）
+     *
+     * @param request 注册请求
+     * @return 注册响应
+     */
+    public RegisterResponse register(RegisterRequest request) {
+        // 1. 检查用户名是否已存在
+        userRepository.findByUsername(request.username())
+                .ifPresent(u -> {
+                    throw new BusinessException("用户名已存在");
+                });
+
+        // 2. 检查邮箱是否已存在
+        if (userRepository.findByEmail(request.email()) != null) {
+            throw new BusinessException("邮箱已被注册");
+        }
+
+        // 3. 创建用户
+        UserEntity user = new UserEntity();
+        user.setUsername(request.username());
+        user.setEmail(request.email());
+        user.setPassword(passwordEncoder.encode(request.password()));
+        user.setStatus(1); // 默认正常状态
+        
+        UserEntity savedUser = userRepository.save(user);
+
+        // 4. 返回注册结果
+        return new RegisterResponse(
+                savedUser.getId(),
+                savedUser.getUsername(),
+                savedUser.getEmail(),
+                savedUser.getCreateTime()
+        );
+    }
+
+    /**
+     * 用户登录（支持用户名或邮箱登录）
+     *
+     * @param request 登录请求
+     * @return 登录响应
+     */
+    public LoginResponse login(LoginRequest request) {
+        // 1. 查询用户（支持用户名或邮箱）
+        UserEntity user = findUserByUsernameOrEmail(request.username());
+        
+        // 2. 验证密码
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new BusinessException("用户名或密码错误");
+        }
+
+        // 3. 检查用户状态
+        checkUserStatus(user);
+
+        // 4. 更新登录信息
+        user.setLastLoginTime(LocalDateTime.now());
+        userRepository.save(user);
+
+        // 5. 生成 JWT token
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        LocalDateTime expiresAt = LocalDateTime.now().plusDays(7);
+
+        // 6. 返回登录响应
+        return new LoginResponse(
+                token,
+                expiresAt,
+                user.getId(),
+                user.getUsername(),
+                user.getNickname(),
+                user.getAvatarUrl()
+        );
+    }
+
+    /**
+     * 根据用户名或邮箱查找用户
+     */
+    private UserEntity findUserByUsernameOrEmail(String usernameOrEmail) {
+        // 判断是邮箱还是用户名
+        if (usernameOrEmail.contains("@")) {
+            UserEntity user = userRepository.findByEmail(usernameOrEmail);
+            if (user == null) {
+                throw new BusinessException("用户名或密码错误");
+            }
+            return user;
+        } else {
+            return userRepository.findByUsername(usernameOrEmail)
+                    .orElseThrow(() -> new BusinessException("用户名或密码错误"));
+        }
+    }
+
+    /**
+     * 检查用户状态
+     */
+    private void checkUserStatus(UserEntity user) {
+        if (user.getStatus() != null && user.getStatus() != 1) {
+            String statusMsg = switch (user.getStatus()) {
+                case 2 -> "您的账号已被禁言";
+                case 3 -> "您的账号已被封号";
+                default -> "您的账号状态异常";
+            };
+            throw new BusinessException(statusMsg);
+        }
     }
 
     /**
@@ -168,6 +275,19 @@ public class UserService {
                 user.getNickname(),
                 user.getAvatarUrl()
         );
+    }
+
+    /**
+     * 根据用户ID查找用户
+     * @param userId 用户ID
+     * @return 用户实体
+     */
+    public UserEntity findById(Long userId) {
+        if (userId == null) {
+            throw new BusinessException("用户ID不能为空");
+        }
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("用户不存在"));
     }
 
 

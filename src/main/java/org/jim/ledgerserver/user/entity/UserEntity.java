@@ -3,6 +3,7 @@ package org.jim.ledgerserver.user.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import org.jim.ledgerserver.base.BaseEntity;
 
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
  * @author James Smith
  */
 @Data
+@EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @Entity(name = "user")
 public class UserEntity extends BaseEntity {

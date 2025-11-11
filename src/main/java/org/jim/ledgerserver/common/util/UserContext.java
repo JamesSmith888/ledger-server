@@ -11,6 +11,7 @@ import org.jim.ledgerserver.user.entity.UserEntity;
 public class UserContext {
 
     private static final ThreadLocal<UserEntity> CURRENT_USER = new ThreadLocal<>();
+    private static final ThreadLocal<String> CURRENT_TOKEN = new ThreadLocal<>();
 
     /**
      * 设置当前用户
@@ -56,6 +57,25 @@ public class UserContext {
      */
     public static void clear() {
         CURRENT_USER.remove();
+        CURRENT_TOKEN.remove();
+    }
+
+    /**
+     * 设置当前用户token
+     *
+     * @param token 用户token
+     */
+    public static void setCurrentToken(String token) {
+        CURRENT_TOKEN.set(token);
+    }
+
+    /**
+     * 获取当前用户token
+     *
+     * @return 用户token，如果未设置则返回 null
+     */
+    public static String getCurrentToken() {
+        return CURRENT_TOKEN.get();
     }
 
     /**

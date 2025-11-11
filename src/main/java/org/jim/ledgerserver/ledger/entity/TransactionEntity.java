@@ -2,6 +2,7 @@ package org.jim.ledgerserver.ledger.entity;
 
 import jakarta.persistence.Entity;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import org.jim.ledgerserver.base.BaseEntity;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
  * @author James Smith
  */
 @Data
+@EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @Entity(name = "transaction")
 public class TransactionEntity extends BaseEntity {
@@ -56,5 +58,9 @@ public class TransactionEntity extends BaseEntity {
      */
     private Long createdByUserId;
 
+    /**
+     * 交易分类ID（可选）
+     */
+    private Long categoryId;
 
 }

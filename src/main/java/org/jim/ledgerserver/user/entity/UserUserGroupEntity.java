@@ -2,6 +2,7 @@ package org.jim.ledgerserver.user.entity;
 
 import jakarta.persistence.Entity;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import org.jim.ledgerserver.base.BaseEntity;
 
@@ -11,6 +12,7 @@ import org.jim.ledgerserver.base.BaseEntity;
  * @author James Smith
  */
 @Data
+@EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @Entity(name = "userUserGroup")
 public class UserUserGroupEntity extends BaseEntity {
