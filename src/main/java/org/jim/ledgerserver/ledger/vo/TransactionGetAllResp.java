@@ -48,6 +48,11 @@ public record TransactionGetAllResp(
         /**
          * 交易分类ID（可选）
          */
-        Long categoryId
+        Long categoryId,
+
+        /**
+         * 支付方式ID（可选）
+         */
+        Long paymentMethodId
 ) {
 }

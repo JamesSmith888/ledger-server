@@ -38,7 +38,8 @@ public class TransactionController {
                 transaction.type().getCode(),
                 transaction.transactionDateTime(),
                 transaction.ledgerId(),
-                transaction.categoryId());
+                transaction.categoryId(),
+                transaction.paymentMethodId());
         return JSONResult.success(transactionEntity.getId());
     }
 
@@ -63,7 +64,8 @@ public class TransactionController {
                             tx.getTransactionDateTime(),
                             tx.getLedgerId(),
                             tx.getCreatedByUserId(),
-                            tx.getCategoryId()
+                            tx.getCategoryId(),
+                            tx.getPaymentMethodId()
                     );
                 })
                 .toList();
@@ -111,7 +113,8 @@ public class TransactionController {
                         tx.getTransactionDateTime(),
                         tx.getLedgerId(),
                         tx.getCreatedByUserId(),
-                        tx.getCategoryId()
+                        tx.getCategoryId(),
+                        tx.getPaymentMethodId()
                 ))
                 .toList();
 
@@ -168,6 +171,67 @@ public class TransactionController {
 
         transactionService.delete(id);
         return JSONResult.success();
+    }
+
+    /**
+     * 更新交易
+     */
+    @PutMapping("/{id}")
+    public JSONResult<TransactionGetAllResp> updateTransaction(
+            @PathVariable Long id,
+            @RequestBody TransactionUpdateReq request
+    ) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        TransactionEntity transaction = transactionService.findById(id);
+        
+        // 验证权限：只有创建者可以更新
+        if (!currentUserId.equals(transaction.getCreatedByUserId())) {
+            return JSONResult.fail("无权限更新该交易");
+        }
+
+        // 更新字段
+        if (request.type() != null) {
+            transaction.setType(request.type().getCode());
+        }
+        if (request.amount() != null) {
+            transaction.setAmount(request.amount());
+        }
+        if (request.categoryId() != null) {
+            transaction.setCategoryId(request.categoryId());
+        }
+        if (request.description() != null) {
+            transaction.setDescription(request.description());
+        }
+        if (request.transactionDateTime() != null) {
+            transaction.setTransactionDateTime(request.transactionDateTime());
+        }
+        if (request.ledgerId() != null) {
+            transaction.setLedgerId(request.ledgerId());
+        }
+        if (request.paymentMethodId() != null) {
+            transaction.setPaymentMethodId(request.paymentMethodId());
+        }
+
+        TransactionEntity updated = transactionService.update(transaction);
+
+        TransactionGetAllResp response = new TransactionGetAllResp(
+                updated.getId(),
+                updated.getName(),
+                updated.getDescription(),
+                updated.getAmount(),
+                TransactionTypeEnum.getByCode(updated.getType()),
+                updated.getTransactionDateTime(),
+                updated.getLedgerId(),
+                updated.getCreatedByUserId(),
+                updated.getCategoryId(),
+                updated.getPaymentMethodId()
+        );
+
+        return JSONResult.success(response);
     }
 
 }

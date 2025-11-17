@@ -12,6 +12,7 @@ import org.jim.ledgerserver.user.dto.RegisterRequest;
 import org.jim.ledgerserver.user.dto.RegisterResponse;
 import org.jim.ledgerserver.user.entity.UserEntity;
 import org.jim.ledgerserver.user.repository.UserRepository;
+import org.jim.ledgerserver.ledger.service.PaymentMethodService;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -30,6 +31,9 @@ public class UserService {
 
     @Resource
     private JwtUtil jwtUtil;
+
+    @Resource
+    private PaymentMethodService paymentMethodService;
 
 
     /**
@@ -78,7 +82,15 @@ public class UserService {
         
         UserEntity savedUser = userRepository.save(user);
 
-        // 4. 返回注册结果
+        // 4. 初始化默认支付方式
+        try {
+            paymentMethodService.createDefaultPaymentMethods(savedUser.getId());
+        } catch (Exception e) {
+            // 如果创建支付方式失败，记录日志但不影响注册流程
+            System.err.println("创建默认支付方式失败: " + e.getMessage());
+        }
+
+        // 5. 返回注册结果
         return new RegisterResponse(
                 savedUser.getId(),
                 savedUser.getUsername(),

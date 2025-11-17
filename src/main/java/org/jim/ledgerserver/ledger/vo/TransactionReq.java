@@ -17,6 +17,7 @@ public record TransactionReq(
         LocalDateTime transactionDateTime,
         Long ledgerId,
         Long createdByUserId,
-        Long categoryId
+        Long categoryId,
+        Long paymentMethodId
 ) {
 }

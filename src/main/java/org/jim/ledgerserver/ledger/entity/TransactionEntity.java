@@ -63,4 +63,9 @@ public class TransactionEntity extends BaseEntity {
      */
     private Long categoryId;
 
+    /**
+     * 支付方式ID（可选）
+     */
+    private Long paymentMethodId;
+
 }

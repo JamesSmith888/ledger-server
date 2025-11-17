@@ -49,7 +49,7 @@ public class TransactionService {
      */
     public TransactionEntity create(String name, String description, BigDecimal amount,
                                     Integer type, LocalDateTime transactionDateTime,
-                                    Long ledgerId, Long categoryId) {
+                                    Long ledgerId, Long categoryId, Long paymentMethodId) {
         if (amount == null) {
             throw new BusinessException("交易金额不能为空");
         }
@@ -75,8 +75,18 @@ public class TransactionService {
         transaction.setLedgerId(ledgerId);
         transaction.setCreatedByUserId(currentUserId);
         transaction.setCategoryId(categoryId);
+        transaction.setPaymentMethodId(paymentMethodId);
 
         return transactionRepository.save(transaction);
+    }
+
+    /**
+     * 创建交易（兼容旧接口，不指定支付方式）
+     */
+    public TransactionEntity create(String name, String description, BigDecimal amount,
+                                    Integer type, LocalDateTime transactionDateTime,
+                                    Long ledgerId, Long categoryId) {
+        return create(name, description, amount, type, transactionDateTime, ledgerId, categoryId, null);
     }
 
     /**
@@ -92,7 +102,7 @@ public class TransactionService {
     public TransactionEntity create(String name, String description, BigDecimal amount,
                                     Integer type, LocalDateTime transactionDateTime,
                                     Long ledgerId) {
-        return create(name, description, amount, type, transactionDateTime, ledgerId, null);
+        return create(name, description, amount, type, transactionDateTime, ledgerId, null, null);
     }
 
     /**
@@ -374,6 +384,22 @@ public class TransactionService {
         }
         transaction.setDeleteTime(LocalDateTime.now());
         transactionRepository.save(transaction);
+    }
+
+    /**
+     * 更新交易实体
+     * @param transaction 交易实体
+     * @return 更新后的交易实体
+     */
+    public TransactionEntity update(TransactionEntity transaction) {
+        if (transaction.getId() == null) {
+            throw new BusinessException("交易ID不能为空");
+        }
+        TransactionEntity existing = findById(transaction.getId());
+        if (existing.getDeleteTime() != null) {
+            throw new BusinessException("交易已删除");
+        }
+        return transactionRepository.save(transaction);
     }
 
     /**

@@ -10,9 +10,9 @@ spring:
         protocol: streamable
   datasource:
     # 配置默认的数据源
-    url: jdbc:mysql://mysql2.sqlpub.com:3307/ledger_test?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
+    url:
     username: ledger_test
-    password: o8BYGquNdsHxvzeX
+    password:
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: HikariCP
