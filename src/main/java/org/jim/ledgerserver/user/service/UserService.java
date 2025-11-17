@@ -290,5 +290,26 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException("用户不存在"));
     }
 
+    /**
+     * 更新用户默认账本
+     * @param userId 用户ID
+     * @param ledgerId 账本ID
+     * @return 更新后的用户实体
+     */
+    public UserEntity updateDefaultLedger(Long userId, Long ledgerId) {
+        UserEntity user = findById(userId);
+        user.setDefaultLedgerId(ledgerId);
+        return userRepository.save(user);
+    }
+
+    /**
+     * 获取用户默认账本ID
+     * @param userId 用户ID
+     * @return 默认账本ID，可能为null
+     */
+    public Long getDefaultLedgerId(Long userId) {
+        UserEntity user = findById(userId);
+        return user.getDefaultLedgerId();
+    }
 
 }

@@ -81,4 +81,9 @@ public class UserEntity extends BaseEntity {
      */
     private LocalDateTime lastLoginTime;
 
+    /**
+     * 默认账本ID
+     */
+    private Long defaultLedgerId;
+
 }
