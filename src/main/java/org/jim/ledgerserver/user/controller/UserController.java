@@ -83,6 +83,19 @@ public class UserController {
     }
 
     /**
+     * 更新用户信息
+     *
+     * @param request 更新请求
+     * @return 更新后的用户信息
+     */
+    @PutMapping("/profile")
+    public JSONResult<UserProfileResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        UserEntity user = userService.updateProfile(currentUserId, request);
+        return JSONResult.success(convertToProfileResponse(user));
+    }
+
+    /**
      * 更新用户默认账本
      *
      * @param request 更新请求

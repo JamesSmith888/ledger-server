@@ -4,7 +4,10 @@ import jakarta.annotation.Resource;
 import org.jim.ledgerserver.common.JSONResult;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 import org.jim.ledgerserver.common.util.UserContext;
+import org.jim.ledgerserver.ledger.entity.LedgerEntity;
 import org.jim.ledgerserver.ledger.entity.TransactionEntity;
+import org.jim.ledgerserver.ledger.service.LedgerService;
+import org.jim.ledgerserver.ledger.service.LedgerMemberService;
 import org.jim.ledgerserver.ledger.service.TransactionService;
 import org.jim.ledgerserver.ledger.vo.*;
 import org.springframework.data.domain.Page;
@@ -25,11 +28,26 @@ public class TransactionController {
     @Resource
     private TransactionService transactionService;
 
+    @Resource
+    private LedgerMemberService ledgerMemberService;
+
+    @Resource
+    private LedgerService ledgerService;
+
     /**
      * 创建交易记录
      */
     @PostMapping("/create")
     public JSONResult<Long> createTransaction(@RequestBody TransactionReq transaction) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        // 验证对账本的编辑权限
+        if (!hasTransactionEditPermission(transaction.ledgerId(), currentUserId)) {
+            return JSONResult.fail("无权限在该账本中创建交易");
+        }
 
         TransactionEntity transactionEntity = transactionService.create(
                 transaction.name(),
@@ -148,6 +166,24 @@ public class TransactionController {
     @PostMapping("/{transactionId}/move-ledger")
     public JSONResult<Void> moveToLedger(@PathVariable Long transactionId,
                                          @RequestBody TransactionMoveLedgerReq request) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        TransactionEntity transaction = transactionService.findById(transactionId);
+        
+        // 验证当前账本的编辑权限
+        if (!currentUserId.equals(transaction.getCreatedByUserId()) &&
+            !hasTransactionEditPermission(transaction.getLedgerId(), currentUserId)) {
+            return JSONResult.fail("无权限移动该交易");
+        }
+        
+        // 验证目标账本的编辑权限
+        if (!hasTransactionEditPermission(request.targetLedgerId(), currentUserId)) {
+            return JSONResult.fail("无权限将交易移动到目标账本");
+        }
+
         transactionService.moveToLedger(transactionId, request.targetLedgerId());
         return JSONResult.success();
     }
@@ -164,8 +200,9 @@ public class TransactionController {
 
         TransactionEntity transaction = transactionService.findById(id);
         
-        // 验证权限：只有创建者可以删除
-        if (!currentUserId.equals(transaction.getCreatedByUserId())) {
+        // 验证权限：创建者或有账本编辑权限的用户可以删除
+        if (!currentUserId.equals(transaction.getCreatedByUserId()) &&
+            !hasTransactionEditPermission(transaction.getLedgerId(), currentUserId)) {
             return JSONResult.fail("无权限删除该交易");
         }
 
@@ -188,9 +225,17 @@ public class TransactionController {
 
         TransactionEntity transaction = transactionService.findById(id);
         
-        // 验证权限：只有创建者可以更新
-        if (!currentUserId.equals(transaction.getCreatedByUserId())) {
+        // 验证权限：创建者或有账本编辑权限的用户可以更新
+        if (!currentUserId.equals(transaction.getCreatedByUserId()) &&
+            !hasTransactionEditPermission(transaction.getLedgerId(), currentUserId)) {
             return JSONResult.fail("无权限更新该交易");
+        }
+
+        // 如果要修改账本，验证新账本的编辑权限
+        if (request.ledgerId() != null && !request.ledgerId().equals(transaction.getLedgerId())) {
+            if (!hasTransactionEditPermission(request.ledgerId(), currentUserId)) {
+                return JSONResult.fail("无权限将交易移动到目标账本");
+            }
         }
 
         // 更新字段
@@ -232,6 +277,37 @@ public class TransactionController {
         );
 
         return JSONResult.success(response);
+    }
+
+    /**
+     * 检查用户是否有交易的编辑权限
+     * 规则：
+     * 1. 个人账本：只有所有者可以编辑
+     * 2. 共享账本：所有者、管理员、记账员可以编辑
+     * 
+     * @param ledgerId 账本ID
+     * @param userId 用户ID
+     * @return 是否有编辑权限
+     */
+    private boolean hasTransactionEditPermission(Long ledgerId, Long userId) {
+        try {
+            LedgerEntity ledger = ledgerService.findById(ledgerId);
+            
+            // 所有者总是有权限
+            if (ledger.getOwnerUserId().equals(userId)) {
+                return true;
+            }
+            
+            // 个人账本只有所有者可以编辑
+            if (ledger.isPersonal()) {
+                return false;
+            }
+            
+            // 共享账本检查成员权限
+            return ledgerMemberService.hasEditPermission(ledgerId, userId);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
 }

@@ -10,6 +10,7 @@ import org.jim.ledgerserver.user.dto.LoginRequest;
 import org.jim.ledgerserver.user.dto.LoginResponse;
 import org.jim.ledgerserver.user.dto.RegisterRequest;
 import org.jim.ledgerserver.user.dto.RegisterResponse;
+import org.jim.ledgerserver.user.dto.UpdateProfileRequest;
 import org.jim.ledgerserver.user.entity.UserEntity;
 import org.jim.ledgerserver.user.repository.UserRepository;
 import org.jim.ledgerserver.ledger.service.PaymentMethodService;
@@ -322,6 +323,37 @@ public class UserService {
     public Long getDefaultLedgerId(Long userId) {
         UserEntity user = findById(userId);
         return user.getDefaultLedgerId();
+    }
+
+    /**
+     * 更新用户信息
+     * @param userId 用户ID
+     * @param request 更新请求
+     * @return 更新后的用户实体
+     */
+    public UserEntity updateProfile(Long userId, UpdateProfileRequest request) {
+        UserEntity user = findById(userId);
+        
+        // 更新昵称
+        if (request.nickname() != null) {
+            user.setNickname(request.nickname());
+        }
+        
+        // 更新邮箱（需要检查邮箱是否已被使用）
+        if (request.email() != null && !request.email().equals(user.getEmail())) {
+            UserEntity existingUser = userRepository.findByEmail(request.email());
+            if (existingUser != null && !existingUser.getId().equals(userId)) {
+                throw new BusinessException("邮箱已被其他用户使用");
+            }
+            user.setEmail(request.email());
+        }
+        
+        // 更新头像
+        if (request.avatarUrl() != null) {
+            user.setAvatarUrl(request.avatarUrl());
+        }
+        
+        return userRepository.save(user);
     }
 
 }
