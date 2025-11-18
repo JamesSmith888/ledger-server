@@ -27,7 +27,7 @@ public class CategoryEntity extends BaseEntity {
     /**
      * 分类图标（emoji或图标代码）
      */
-    @Column(length = 10)
+    @Column(length = 50)
     private String icon;
 
     /**
