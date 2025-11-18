@@ -52,14 +52,14 @@ public class CategoryService {
      */
     private void createSystemExpenseCategories() {
         String[][] expenseCategories = {
-            {"餐饮", "🍜", "#FF9500"},
-            {"购物", "🛍️", "#FF2D55"},
-            {"交通", "🚗", "#5AC8FA"},
-            {"日用", "🏠", "#34C759"},
-            {"娱乐", "🎮", "#AF52DE"},
-            {"医疗", "💊", "#FF3B30"},
-            {"教育", "📚", "#007AFF"},
-            {"通讯", "📱", "#5AC8FA"}
+            {"餐饮", "ionicons:restaurant", "#FF9500"},
+            {"购物", "ionicons:cart", "#FF2D55"},
+            {"交通", "ionicons:car", "#5AC8FA"},
+            {"日用", "ionicons:home", "#34C759"},
+            {"娱乐", "ionicons:game-controller", "#AF52DE"},
+            {"医疗", "ionicons:medical", "#FF3B30"},
+            {"教育", "ionicons:book", "#007AFF"},
+            {"通讯", "ionicons:phone-portrait", "#5AC8FA"}
         };
 
         for (int i = 0; i < expenseCategories.length; i++) {
@@ -81,10 +81,10 @@ public class CategoryService {
      */
     private void createSystemIncomeCategories() {
         String[][] incomeCategories = {
-            {"工资", "💰", "#34C759"},
-            {"奖金", "🎁", "#FF9500"},
-            {"理财", "📈", "#FFD60A"},
-            {"兼职", "💼", "#00C7BE"}
+            {"工资", "ionicons:wallet", "#34C759"},
+            {"奖金", "ionicons:gift", "#FF9500"},
+            {"理财", "ionicons:trending-up", "#FFD60A"},
+            {"兼职", "ionicons:briefcase", "#00C7BE"}
         };
 
         for (int i = 0; i < incomeCategories.length; i++) {
