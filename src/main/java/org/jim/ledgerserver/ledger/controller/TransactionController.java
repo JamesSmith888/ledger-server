@@ -5,18 +5,28 @@ import org.jim.ledgerserver.common.JSONResult;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 import org.jim.ledgerserver.common.util.UserContext;
 import org.jim.ledgerserver.ledger.entity.LedgerEntity;
+import org.jim.ledgerserver.ledger.entity.TransactionAttachmentEntity;
 import org.jim.ledgerserver.ledger.entity.TransactionEntity;
 import org.jim.ledgerserver.ledger.service.LedgerService;
 import org.jim.ledgerserver.ledger.service.LedgerMemberService;
+import org.jim.ledgerserver.ledger.service.TransactionAttachmentService;
 import org.jim.ledgerserver.ledger.service.TransactionService;
 import org.jim.ledgerserver.ledger.vo.*;
+import org.jim.ledgerserver.user.entity.UserEntity;
+import org.jim.ledgerserver.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author James Smith
@@ -33,6 +43,12 @@ public class TransactionController {
 
     @Resource
     private LedgerService ledgerService;
+
+    @Resource
+    private UserRepository userRepository;
+
+    @Resource
+    private TransactionAttachmentService attachmentService;
 
     /**
      * 创建交易记录
@@ -72,20 +88,7 @@ public class TransactionController {
 
         // TransactionEntity to TransactionGetAllResp
         List<TransactionGetAllResp> respList = transactions.stream()
-                .map(tx ->{
-                    return new TransactionGetAllResp(
-                            tx.getId(),
-                            tx.getName(),
-                            tx.getDescription(),
-                            tx.getAmount(),
-                            TransactionTypeEnum.getByCode(tx.getType()),
-                            tx.getTransactionDateTime(),
-                            tx.getLedgerId(),
-                            tx.getCreatedByUserId(),
-                            tx.getCategoryId(),
-                            tx.getPaymentMethodId()
-                    );
-                })
+                .map(this::toTransactionResp)
                 .toList();
 
         return JSONResult.success(respList);
@@ -122,18 +125,7 @@ public class TransactionController {
 
         // 转换为响应对象
         List<TransactionGetAllResp> content = page.getContent().stream()
-                .map(tx -> new TransactionGetAllResp(
-                        tx.getId(),
-                        tx.getName(),
-                        tx.getDescription(),
-                        tx.getAmount(),
-                        TransactionTypeEnum.getByCode(tx.getType()),
-                        tx.getTransactionDateTime(),
-                        tx.getLedgerId(),
-                        tx.getCreatedByUserId(),
-                        tx.getCategoryId(),
-                        tx.getPaymentMethodId()
-                ))
+                .map(this::toTransactionResp)
                 .toList();
 
         TransactionPageResp response = new TransactionPageResp(
@@ -158,6 +150,34 @@ public class TransactionController {
     public JSONResult<List<TransactionEntity>> getTransactionsByCategoryId(@PathVariable Long categoryId) {
         List<TransactionEntity> transactions = transactionService.findByCategoryId(categoryId);
         return JSONResult.success(transactions);
+    }
+
+    /**
+     * 获取每日统计数据（用于热力图）
+     * @param ledgerId 账本ID（可选）
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return 每日统计列表
+     */
+    @GetMapping("/daily-statistics")
+    public JSONResult<List<DailyStatisticsResp>> getDailyStatistics(
+            @RequestParam(required = false) Long ledgerId,
+            @RequestParam String startTime,
+            @RequestParam String endTime
+    ) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        List<DailyStatisticsResp> statistics = transactionService.getDailyStatistics(
+                ledgerId,
+                startTime,
+                endTime,
+                currentUserId
+        );
+
+        return JSONResult.success(statistics);
     }
 
     /**
@@ -263,20 +283,54 @@ public class TransactionController {
 
         TransactionEntity updated = transactionService.update(transaction);
 
-        TransactionGetAllResp response = new TransactionGetAllResp(
-                updated.getId(),
-                updated.getName(),
-                updated.getDescription(),
-                updated.getAmount(),
-                TransactionTypeEnum.getByCode(updated.getType()),
-                updated.getTransactionDateTime(),
-                updated.getLedgerId(),
-                updated.getCreatedByUserId(),
-                updated.getCategoryId(),
-                updated.getPaymentMethodId()
-        );
+        TransactionGetAllResp response = toTransactionResp(updated);
 
         return JSONResult.success(response);
+    }
+
+    /**
+     * 将 TransactionEntity 转换为 TransactionGetAllResp，包含创建人信息和附件数量
+     */
+    private TransactionGetAllResp toTransactionResp(TransactionEntity tx) {
+        String createdByUserName = null;
+        String createdByUserNickname = null;
+        
+        // 获取创建人信息
+        if (tx.getCreatedByUserId() != null) {
+            try {
+                UserEntity user = userRepository.findById(tx.getCreatedByUserId()).orElse(null);
+                if (user != null) {
+                    createdByUserName = user.getUsername();
+                    createdByUserNickname = user.getNickname();
+                }
+            } catch (Exception e) {
+                // 忽略用户查询异常，不影响交易数据返回
+            }
+        }
+        
+        // 获取附件数量
+        long attachmentCount = 0;
+        try {
+            attachmentCount = attachmentService.countAttachments(tx.getId());
+        } catch (Exception e) {
+            // 忽略附件查询异常，不影响交易数据返回
+        }
+        
+        return new TransactionGetAllResp(
+                tx.getId(),
+                tx.getName(),
+                tx.getDescription(),
+                tx.getAmount(),
+                TransactionTypeEnum.getByCode(tx.getType()),
+                tx.getTransactionDateTime(),
+                tx.getLedgerId(),
+                tx.getCreatedByUserId(),
+                createdByUserName,
+                createdByUserNickname,
+                tx.getCategoryId(),
+                tx.getPaymentMethodId(),
+                attachmentCount
+        );
     }
 
     /**
@@ -308,6 +362,134 @@ public class TransactionController {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    // ==================== 附件相关接口 ====================
+
+    /**
+     * 上传交易附件
+     */
+    @PostMapping("/{transactionId}/attachments")
+    public JSONResult<AttachmentMetadataResp> uploadAttachment(
+            @PathVariable Long transactionId,
+            @RequestParam("file") MultipartFile file
+    ) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        TransactionEntity transaction = transactionService.findById(transactionId);
+        
+        // 验证权限：创建者或有账本编辑权限的用户可以上传附件
+        if (!currentUserId.equals(transaction.getCreatedByUserId()) &&
+            !hasTransactionEditPermission(transaction.getLedgerId(), currentUserId)) {
+            return JSONResult.fail("无权限上传附件");
+        }
+
+        TransactionAttachmentEntity attachment = attachmentService.uploadAttachment(transactionId, file);
+        
+        AttachmentMetadataResp resp = new AttachmentMetadataResp(
+                attachment.getId(),
+                attachment.getTransactionId(),
+                attachment.getFileName(),
+                attachment.getFileType(),
+                attachment.getFileSize(),
+                attachment.getWidth(),
+                attachment.getHeight(),
+                attachment.getUploadedByUserId(),
+                attachment.getCreateTime(),
+                attachment.getThumbnailData() != null
+        );
+
+        return JSONResult.success(resp);
+    }
+
+    /**
+     * 获取交易附件列表（仅元数据）
+     */
+    @GetMapping("/{transactionId}/attachments")
+    public JSONResult<List<AttachmentMetadataResp>> getAttachments(@PathVariable Long transactionId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        List<TransactionAttachmentEntity> attachments = attachmentService.getAttachmentMetadata(transactionId);
+        
+        List<AttachmentMetadataResp> respList = attachments.stream()
+                .map(a -> new AttachmentMetadataResp(
+                        a.getId(),
+                        a.getTransactionId(),
+                        a.getFileName(),
+                        a.getFileType(),
+                        a.getFileSize(),
+                        a.getWidth(),
+                        a.getHeight(),
+                        a.getUploadedByUserId(),
+                        a.getCreateTime(),
+                        a.getThumbnailData() != null
+                ))
+                .collect(Collectors.toList());
+
+        return JSONResult.success(respList);
+    }
+
+    /**
+     * 下载附件（完整文件）
+     */
+    @GetMapping("/attachments/{attachmentId}/download")
+    public ResponseEntity<byte[]> downloadAttachment(@PathVariable Long attachmentId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        TransactionAttachmentEntity attachment = attachmentService.getAttachment(attachmentId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(attachment.getFileType()));
+        headers.setContentDispositionFormData("attachment", attachment.getFileName());
+        headers.setContentLength(attachment.getFileSize());
+
+        return new ResponseEntity<>(attachment.getFileData(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * 获取附件缩略图
+     */
+    @GetMapping("/attachments/{attachmentId}/thumbnail")
+    public ResponseEntity<byte[]> getThumbnail(@PathVariable Long attachmentId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        TransactionAttachmentEntity attachment = attachmentService.getAttachment(attachmentId);
+
+        if (attachment.getThumbnailData() == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.IMAGE_JPEG);
+        headers.setCacheControl("max-age=86400"); // 缓存1天
+
+        return new ResponseEntity<>(attachment.getThumbnailData(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * 删除附件
+     */
+    @DeleteMapping("/attachments/{attachmentId}")
+    public JSONResult<Void> deleteAttachment(@PathVariable Long attachmentId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        attachmentService.deleteAttachment(attachmentId);
+        return JSONResult.success();
     }
 
 }

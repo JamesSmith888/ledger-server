@@ -1,6 +1,7 @@
 package org.jim.ledgerserver.ledger.service;
 
 import jakarta.annotation.Resource;
+import jakarta.persistence.criteria.Predicate;
 import org.apache.commons.lang3.StringUtils;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 import org.jim.ledgerserver.common.exception.BusinessException;
@@ -14,7 +15,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -154,13 +154,14 @@ public class TransactionService {
             // 未删除的记录
             predicates.add(cb.isNull(root.get("deleteTime")));
 
-            // 创建用户ID
-            predicates.add(cb.equal(root.get("createdByUserId"), createdByUserId));
-
             // 账本ID筛选
             if (ledgerId != null) {
                 predicates.add(cb.equal(root.get("ledgerId"), ledgerId));
+            } else {
+                // 创建用户ID
+                predicates.add(cb.equal(root.get("createdByUserId"), createdByUserId));
             }
+
 
             // 交易类型筛选
             if (type != null) {
@@ -552,5 +553,93 @@ public class TransactionService {
             return true;
         }
         return ledgerMemberService.hasEditPermission(ledger.getId(), userId);
+    }
+
+    /**
+     * 获取每日统计数据（用于热力图）
+     * @param ledgerId 账本ID（可选）
+     * @param startTimeStr 开始时间字符串
+     * @param endTimeStr 结束时间字符串
+     * @param userId 用户ID
+     * @return 每日统计列表
+     */
+    public List<org.jim.ledgerserver.ledger.vo.DailyStatisticsResp> getDailyStatistics(
+            Long ledgerId,
+            String startTimeStr,
+            String endTimeStr,
+            Long userId) {
+
+        if (userId == null) {
+            throw new BusinessException("用户ID不能为空");
+        }
+
+        LocalDateTime startTime = LocalDateTime.parse(startTimeStr);
+        LocalDateTime endTime = LocalDateTime.parse(endTimeStr);
+
+        if (startTime.isAfter(endTime)) {
+            throw new BusinessException("开始时间不能晚于结束时间");
+        }
+
+        // 构建查询条件
+        Specification<TransactionEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 未删除的记录
+            predicates.add(cb.isNull(root.get("deleteTime")));
+
+            // 账本ID筛选
+            if (ledgerId != null) {
+                predicates.add(cb.equal(root.get("ledgerId"), ledgerId));
+            } else {
+                // 创建用户ID
+                predicates.add(cb.equal(root.get("createdByUserId"), userId));
+            }
+
+            // 时间范围筛选
+            predicates.add(cb.greaterThanOrEqualTo(root.get("transactionDateTime"), startTime));
+            predicates.add(cb.lessThanOrEqualTo(root.get("transactionDateTime"), endTime));
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        List<TransactionEntity> transactions = transactionRepository.findAll(spec);
+
+        // 按日期分组统计
+        java.util.Map<String, org.jim.ledgerserver.ledger.vo.DailyStatisticsResp> dailyMap = new java.util.HashMap<>();
+
+        transactions.forEach(tx -> {
+            String date = tx.getTransactionDateTime().toLocalDate().toString();
+
+            dailyMap.computeIfAbsent(date, k ->
+                    new org.jim.ledgerserver.ledger.vo.DailyStatisticsResp(
+                            k,
+                            BigDecimal.ZERO,
+                            BigDecimal.ZERO,
+                            0
+                    )
+            );
+
+            org.jim.ledgerserver.ledger.vo.DailyStatisticsResp existing = dailyMap.get(date);
+
+            BigDecimal newIncome = existing.income();
+            BigDecimal newExpense = existing.expense();
+            int newCount = existing.count() + 1;
+
+            // 根据交易类型累加
+            if (tx.getType() == 1) { // 收入
+                newIncome = newIncome.add(tx.getAmount());
+            } else if (tx.getType() == 2) { // 支出
+                newExpense = newExpense.add(tx.getAmount());
+            }
+
+            dailyMap.put(date, new org.jim.ledgerserver.ledger.vo.DailyStatisticsResp(
+                    date,
+                    newIncome,
+                    newExpense,
+                    newCount
+            ));
+        });
+
+        return new ArrayList<>(dailyMap.values());
     }
 }

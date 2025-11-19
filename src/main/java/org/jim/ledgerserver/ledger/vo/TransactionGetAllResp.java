@@ -46,6 +46,16 @@ public record TransactionGetAllResp(
         Long createdByUserId,
 
         /**
+         * 创建人用户名
+         */
+        String createdByUserName,
+
+        /**
+         * 创建人昵称
+         */
+        String createdByUserNickname,
+
+        /**
          * 交易分类ID（可选）
          */
         Long categoryId,
@@ -53,6 +63,11 @@ public record TransactionGetAllResp(
         /**
          * 支付方式ID（可选）
          */
-        Long paymentMethodId
+        Long paymentMethodId,
+
+        /**
+         * 附件数量
+         */
+        Long attachmentCount
 ) {
 }

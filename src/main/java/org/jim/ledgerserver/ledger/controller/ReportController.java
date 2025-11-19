@@ -10,7 +10,7 @@ import org.jim.ledgerserver.ledger.vo.TrendStatisticsResp;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 报表接口控制器
+ * 图表接口控制器
  * @author James Smith
  */
 @RestController

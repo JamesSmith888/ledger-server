@@ -31,5 +31,32 @@ jwt:
   # 过期时间（单位：毫秒，默认 7 天）
   expiration: 604800000
 
+# OAuth 第三方登录配置
+oauth:
+  # 微信开放平台配置
+  wechat:
+    app-id: ${WECHAT_APP_ID:your-wechat-app-id}
+    app-secret: ${WECHAT_APP_SECRET:your-wechat-app-secret}
+  
+  # 支付宝开放平台配置
+  alipay:
+    app-id: ${ALIPAY_APP_ID:your-alipay-app-id}
+    # 应用私钥（PKCS8格式，去掉头尾和换行）
+    private-key: ${ALIPAY_PRIVATE_KEY:your-alipay-private-key}
+    # 支付宝公钥（用于验证支付宝返回的签名）
+    alipay-public-key: ${ALIPAY_PUBLIC_KEY:your-alipay-public-key}
+  
+  # Google OAuth 2.0 配置
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:your-google-client-id}
+    client-secret: ${GOOGLE_CLIENT_SECRET:your-google-client-secret}
+  
+  # Apple Sign In 配置
+  apple:
+    client-id: ${APPLE_CLIENT_ID:your-apple-client-id}
+    team-id: ${APPLE_TEAM_ID:your-apple-team-id}
+    key-id: ${APPLE_KEY_ID:your-apple-key-id}
+    private-key: ${APPLE_PRIVATE_KEY:your-apple-private-key}
+
 server:
   port: 9432

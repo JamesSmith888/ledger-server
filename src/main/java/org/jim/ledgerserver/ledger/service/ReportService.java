@@ -30,8 +30,14 @@ public class ReportService {
     @Resource
     private CategoryService categoryService;
 
+    @Resource
+    private LedgerService ledgerService;
+
+    @Resource
+    private PaymentMethodService paymentMethodService;
+
     /**
-     * 按分类统计
+     * 按分类统计（支持多维度）
      * @param request 查询参数
      * @param currentUserId 当前用户ID
      * @return 分类统计结果
@@ -46,52 +52,18 @@ public class ReportService {
             return createEmptyCategoryStatistics(request);
         }
 
-        // 按分类分组统计
-        Map<Long, List<TransactionEntity>> groupedByCategory = transactions.stream()
-                .filter(t -> t.getCategoryId() != null)
-                .collect(Collectors.groupingBy(TransactionEntity::getCategoryId));
-
         // 计算总金额
         BigDecimal totalAmount = transactions.stream()
                 .map(TransactionEntity::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 构建统计项列表
-        List<StatisticsItemResp> items = groupedByCategory.entrySet().stream()
-                .map(entry -> {
-                    Long categoryId = entry.getKey();
-                    List<TransactionEntity> categoryTransactions = entry.getValue();
-
-                    // 获取分类信息
-                    var category = categoryService.findById(categoryId);
-                    String categoryName = category.getName();
-                    String categoryIcon = category.getIcon();
-
-                    // 计算该分类的总金额和数量
-                    BigDecimal categoryAmount = categoryTransactions.stream()
-                            .map(TransactionEntity::getAmount)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                    Long categoryCount = (long) categoryTransactions.size();
-
-                    // 计算占比
-                    Double percentage = totalAmount.compareTo(BigDecimal.ZERO) > 0
-                            ? categoryAmount.divide(totalAmount, 4, RoundingMode.HALF_UP)
-                                    .multiply(BigDecimal.valueOf(100))
-                                    .doubleValue()
-                            : 0.0;
-
-                    return new StatisticsItemResp(
-                            String.valueOf(categoryId),
-                            categoryName,
-                            categoryIcon,
-                            categoryAmount,
-                            categoryCount,
-                            percentage
-                    );
-                })
-                .sorted((a, b) -> b.amount().compareTo(a.amount())) // 按金额降序
-                .toList();
+        // 根据维度进行分组统计
+        List<StatisticsItemResp> items = switch (request.dimension().toLowerCase()) {
+            case "category" -> groupByCategory(transactions, totalAmount);
+            case "ledger" -> groupByLedger(transactions, totalAmount);
+            case "paymentmethod" -> groupByPaymentMethod(transactions, totalAmount);
+            default -> groupByCategory(transactions, totalAmount);
+        };
 
         return new CategoryStatisticsResp(
                 items,
@@ -102,6 +74,113 @@ public class ReportService {
                         request.endTime().toString()
                 )
         );
+    }
+
+    /**
+     * 按分类维度分组统计
+     */
+    private List<StatisticsItemResp> groupByCategory(List<TransactionEntity> transactions, BigDecimal totalAmount) {
+        Map<Long, List<TransactionEntity>> grouped = transactions.stream()
+                .filter(t -> t.getCategoryId() != null)
+                .collect(Collectors.groupingBy(TransactionEntity::getCategoryId));
+
+        return grouped.entrySet().stream()
+                .map(entry -> {
+                    Long id = entry.getKey();
+                    List<TransactionEntity> items = entry.getValue();
+
+                    // 获取分类信息
+                    var category = categoryService.findById(id);
+                    String name = category.getName();
+                    String icon = category.getIcon();
+
+                    return buildStatisticsItem(String.valueOf(id), name, icon, items, totalAmount);
+                })
+                .sorted((a, b) -> b.amount().compareTo(a.amount()))
+                .toList();
+    }
+
+    /**
+     * 按账本维度分组统计
+     */
+    private List<StatisticsItemResp> groupByLedger(List<TransactionEntity> transactions, BigDecimal totalAmount) {
+        Map<Long, List<TransactionEntity>> grouped = transactions.stream()
+                .filter(t -> t.getLedgerId() != null)
+                .collect(Collectors.groupingBy(TransactionEntity::getLedgerId));
+
+        return grouped.entrySet().stream()
+                .map(entry -> {
+                    Long id = entry.getKey();
+                    List<TransactionEntity> items = entry.getValue();
+
+                    // 获取账本信息（容错处理）
+                    String name;
+                    String icon = "📒"; // 默认账本图标
+                    try {
+                        var ledger = ledgerService.findById(id);
+                        name = ledger.getName();
+                    } catch (Exception e) {
+                        name = "未知账本";
+                    }
+
+                    return buildStatisticsItem(String.valueOf(id), name, icon, items, totalAmount);
+                })
+                .sorted((a, b) -> b.amount().compareTo(a.amount()))
+                .toList();
+    }
+
+    /**
+     * 按支付方式维度分组统计
+     */
+    private List<StatisticsItemResp> groupByPaymentMethod(List<TransactionEntity> transactions, BigDecimal totalAmount) {
+        Map<Long, List<TransactionEntity>> grouped = transactions.stream()
+                .filter(t -> t.getPaymentMethodId() != null)
+                .collect(Collectors.groupingBy(TransactionEntity::getPaymentMethodId));
+
+        return grouped.entrySet().stream()
+                .map(entry -> {
+                    Long id = entry.getKey();
+                    List<TransactionEntity> items = entry.getValue();
+
+                    // 获取支付方式信息（容错处理）
+                    String name;
+                    String icon = "💳"; // 默认支付方式图标
+                    try {
+                        var paymentMethod = paymentMethodService.findById(id);
+                        name = paymentMethod.getName();
+                        if (paymentMethod.getIcon() != null) {
+                            icon = paymentMethod.getIcon();
+                        }
+                    } catch (Exception e) {
+                        name = "未知支付方式";
+                    }
+
+                    return buildStatisticsItem(String.valueOf(id), name, icon, items, totalAmount);
+                })
+                .sorted((a, b) -> b.amount().compareTo(a.amount()))
+                .toList();
+    }
+
+    /**
+     * 构建统计项
+     */
+    private StatisticsItemResp buildStatisticsItem(String id, String name, String icon,
+                                                     List<TransactionEntity> transactions, BigDecimal totalAmount) {
+        // 计算金额和数量
+        BigDecimal amount = transactions.stream()
+                .map(TransactionEntity::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Long count = (long) transactions.size();
+
+        // 计算占比
+        Double percentage = totalAmount.compareTo(BigDecimal.ZERO) > 0
+                ? amount.divide(totalAmount, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100))
+                        .doubleValue()
+                : 0.0;
+
+        return new StatisticsItemResp(id, name, icon, amount, count, percentage);
     }
 
     /**
