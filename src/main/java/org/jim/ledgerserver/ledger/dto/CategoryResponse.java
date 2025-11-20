@@ -14,6 +14,7 @@ public record CategoryResponse(
         TransactionTypeEnum type,
         Integer sortOrder,
         Boolean isSystem,
-        String description
+        String description,
+        Boolean isFrequent
 ) {
 }

@@ -120,8 +120,43 @@ public class CategoryController {
                 typeEnum,
                 entity.getSortOrder(),
                 entity.getIsSystem(),
-                entity.getDescription()
+                entity.getDescription(),
+                entity.getIsFrequent()
         );
         return JSONResult.success(response);
+    }
+
+    /**
+     * 标记分类为常用
+     */
+    @PostMapping("/{id}/mark-frequent")
+    public JSONResult<Void> markCategoryAsFrequent(@PathVariable Long id) {
+        categoryService.markAsFrequent(id);
+        return JSONResult.success();
+    }
+
+    /**
+     * 取消标记分类为常用
+     */
+    @PostMapping("/{id}/unmark-frequent")
+    public JSONResult<Void> unmarkCategoryAsFrequent(@PathVariable Long id) {
+        categoryService.unmarkAsFrequent(id);
+        return JSONResult.success();
+    }
+
+    /**
+     * 获取常用分类
+     */
+    @GetMapping("/frequent/{type}")
+    public JSONResult<List<CategoryResponse>> getFrequentCategories(@PathVariable String type) {
+        TransactionTypeEnum typeEnum;
+        try {
+            typeEnum = TransactionTypeEnum.valueOf(type.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return JSONResult.fail("无效的分类类型");
+        }
+        
+        List<CategoryResponse> categories = categoryService.getFrequentCategories(typeEnum);
+        return JSONResult.success(categories);
     }
 }

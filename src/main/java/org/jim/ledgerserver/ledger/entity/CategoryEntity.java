@@ -69,4 +69,12 @@ public class CategoryEntity extends BaseEntity {
      */
     @Column(length = 200)
     private String description;
+
+    /**
+     * 是否为常用分类
+     * true - 标记为常用，在新增交易时快速显示
+     * false - 非常用分类
+     */
+    @Column(name = "is_frequent", nullable = false, columnDefinition = "boolean default false")
+    private Boolean isFrequent = false;
 }

@@ -93,4 +93,13 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, Long> 
      */
     @Query("SELECT COALESCE(MAX(c.sortOrder), 0) FROM category c WHERE c.type = :type AND c.createdByUserId = :userId AND c.deleteTime IS NULL")
     Integer findMaxSortOrderByTypeAndUserId(@Param("type") Integer type, @Param("userId") Long userId);
+
+    /**
+     * 查找用户的常用分类
+     * @param type 分类类型
+     * @param userId 用户ID
+     * @return 常用分类列表
+     */
+    @Query("SELECT c FROM category c WHERE c.type = :type AND (c.isSystem = true OR c.createdByUserId = :userId) AND c.isFrequent = true AND c.deleteTime IS NULL ORDER BY c.sortOrder ASC, c.createTime ASC")
+    List<CategoryEntity> findFrequentCategoriesByTypeAndUserId(@Param("type") Integer type, @Param("userId") Long userId);
 }

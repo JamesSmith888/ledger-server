@@ -67,7 +67,71 @@ public class CategoryService {
             {"社交", "ionicons:people", "#9B59B6"},
             {"维修", "ionicons:construct", "#95A5A6"},
             {"保险", "ionicons:shield-checkmark", "#3498DB"},
-            {"捐赠", "ionicons:gift", "#E74C3C"}
+            {"捐赠", "ionicons:gift", "#E74C3C"},
+            {"住房", "ionicons:home", "#8B7355"},
+            {"电费", "ionicons:flash", "#FFC107"},
+            {"水费", "ionicons:water", "#00BCD4"},
+            {"煤气费", "ionicons:flame", "#FF5722"},
+            {"房租", "ionicons:key", "#9C27B0"},
+            {"物业费", "ionicons:building", "#607D8B"},
+            {"停车费", "ionicons:car", "#455A64"},
+            {"加油", "ionicons:gas-cylinder", "#FDD835"},
+            {"维保", "ionicons:settings", "#78909C"},
+            {"衣服", "ionicons:shirt", "#E91E63"},
+            {"鞋子", "ionicons:shoe-prints", "#C2185B"},
+            {"饰品", "ionicons:sparkles", "#AB47BC"},
+            {"化妆品", "ionicons:sparkles", "#6A1B9A"},
+            {"书籍", "ionicons:book", "#3F51B5"},
+            {"手机", "ionicons:phone-portrait", "#2196F3"},
+            {"电脑", "ionicons:laptop", "#03A9F4"},
+            {"相机", "ionicons:camera", "#00BCD4"},
+            {"音乐", "ionicons:musical-notes", "#009688"},
+            {"游戏", "ionicons:game-controller", "#4CAF50"},
+            {"电影", "ionicons:film", "#8BC34A"},
+            {"健身房", "ionicons:dumbbell", "#CDDC39"},
+            {"瑜伽", "ionicons:body", "#FFEB3B"},
+            {"美发", "ionicons:sparkles", "#FFC107"},
+            {"按摩", "ionicons:hand-left", "#FF9800"},
+            {"眼镜", "ionicons:glasses", "#FF5722"},
+            {"牙医", "ionicons:happy", "#FFFFFF"},
+            {"挂号费", "ionicons:medical", "#F44336"},
+            {"药费", "ionicons:flask", "#E91E63"},
+            {"检查费", "ionicons:search", "#9C27B0"},
+            {"住院费", "ionicons:home", "#673AB7"},
+            {"补课", "ionicons:school", "#3F51B5"},
+            {"兴趣班", "ionicons:school", "#2196F3"},
+            {"报名费", "ionicons:document", "#03A9F4"},
+            {"考试费", "ionicons:document", "#00BCD4"},
+            {"充值话费", "ionicons:phone-portrait", "#009688"},
+            {"网络费", "ionicons:wifi", "#4CAF50"},
+            {"电视费", "ionicons:television", "#8BC34A"},
+            {"流媒体", "ionicons:play-circle", "#CDDC39"},
+            {"咖啡", "ionicons:coffee", "#A1887F"},
+            {"甜品", "ionicons:ice-cream", "#FF69B4"},
+            {"下午茶", "ionicons:leaf", "#7CB342"},
+            {"饮料", "ionicons:water", "#00ACC1"},
+            {"宵夜", "ionicons:moon", "#9575CD"},
+            {"外卖", "ionicons:fast-food", "#FF7043"},
+            {"便利店", "ionicons:storefront", "#AB47BC"},
+            {"超市", "ionicons:basket", "#42A5F5"},
+            {"菜市场", "ionicons:leaf", "#66BB6A"},
+            {"零食", "ionicons:cube", "#FFA726"},
+            {"酒", "ionicons:wine", "#EC407A"},
+            {"烟", "ionicons:flame", "#78909C"},
+            {"火车", "ionicons:train", "#546E7A"},
+            {"飞机", "ionicons:airplane", "#37474F"},
+            {"地铁", "ionicons:subway", "#455A64"},
+            {"公交", "ionicons:bus", "#607D8B"},
+            {"打车", "ionicons:taxi", "#78909C"},
+            {"停泊费", "ionicons:car", "#90A4AE"},
+            {"过路费", "ionicons:card", "#BDBDBD"},
+            {"门票", "ionicons:ticket", "#A1887F"},
+            {"景区", "ionicons:mountain", "#8D6E63"},
+            {"酒店", "ionicons:bed", "#795548"},
+            {"民宿", "ionicons:home", "#5D4037"},
+            {"团购", "ionicons:layers", "#4E342E"},
+            {"包裹邮费", "ionicons:mail", "#D7CCC8"},
+            {"快递", "ionicons:send", "#BCAAA4"}
         };
 
         for (int i = 0; i < expenseCategories.length; i++) {
@@ -98,7 +162,52 @@ public class CategoryService {
             {"报销", "ionicons:receipt", "#4ECDC4"},
             {"退款", "ionicons:return-down-back", "#95E1D3"},
             {"租金", "ionicons:business", "#FFA07A"},
-            {"分红", "ionicons:cash", "#F38181"}
+            {"分红", "ionicons:cash", "#F38181"},
+            {"兼职费", "ionicons:briefcase", "#26A69A"},
+            {"稿费", "ionicons:document", "#AB47BC"},
+            {"版税", "ionicons:book", "#7E57C2"},
+            {"咨询费", "ionicons:chatbubble", "#5C6BC0"},
+            {"服务费", "ionicons:hand-right", "#3949AB"},
+            {"顾问费", "ionicons:person", "#1565C0"},
+            {"培训费", "ionicons:school", "#0277BD"},
+            {"讲师费", "ionicons:microphone", "#00838F"},
+            {"演讲费", "ionicons:mic", "#00695C"},
+            {"代购佣金", "ionicons:cart", "#004D40"},
+            {"转账", "ionicons:swap-horizontal", "#1B5E20"},
+            {"借款返还", "ionicons:hand-left", "#33691E"},
+            {"保证金", "ionicons:key", "#558B2F"},
+            {"押金返还", "ionicons:return-down-back", "#9CCC65"},
+            {"奖学金", "ionicons:school", "#C0CA33"},
+            {"补助", "ionicons:gift", "#F57F17"},
+            {"津贴", "ionicons:card", "#FF6F00"},
+            {"福利", "ionicons:heart", "#E65100"},
+            {"奖励", "ionicons:star", "#BF360C"},
+            {"彩票", "ionicons:dice", "#D84315"},
+            {"找零", "ionicons:cash", "#6D4C41"},
+            {"卖东西", "ionicons:basket", "#5D4037"},
+            {"二手收入", "ionicons:swap-horizontal", "#4E342E"},
+            {"闲鱼", "ionicons:fish", "#3E2723"},
+            {"出租房间", "ionicons:home", "#FFFFFF"},
+            {"停车费收入", "ionicons:car", "#ECEFF1"},
+            {"场地租赁", "ionicons:business", "#CFD8DC"},
+            {"分享收益", "ionicons:share-social", "#B0BEC5"},
+            {"推荐费", "ionicons:person-add", "#90A4AE"},
+            {"返利", "ionicons:local-offer", "#78909C"},
+            {"积分兑换", "ionicons:gift", "#607D8B"},
+            {"利息", "ionicons:trending-up", "#455A64"},
+            {"分期", "ionicons:calendar", "#37474F"},
+            {"保险理赔", "ionicons:shield-checkmark", "#263238"},
+            {"医保报销", "ionicons:medical", "#FFFFFF"},
+            {"税收退款", "ionicons:receipt", "#ECEFF1"},
+            {"发票返还", "ionicons:document", "#CFD8DC"},
+            {"违约金", "ionicons:alert", "#B0BEC5"},
+            {"赔偿费", "ionicons:warning", "#90A4AE"},
+            {"保费返还", "ionicons:card", "#78909C"},
+            {"股息", "ionicons:trending-up", "#607D8B"},
+            {"基金分红", "ionicons:trending-up", "#455A64"},
+            {"期权收益", "ionicons:stats-chart", "#37474F"},
+            {"外汇收益", "ionicons:cash", "#263238"},
+            {"虚拟币收益", "ionicons:logo-bitcoin", "#FFFFFF"}
         };
 
         for (int i = 0; i < incomeCategories.length; i++) {
@@ -334,7 +443,70 @@ public class CategoryService {
                 typeEnum,
                 entity.getSortOrder(),
                 entity.getIsSystem(),
-                entity.getDescription()
+                entity.getDescription(),
+                entity.getIsFrequent()
         );
+    }
+
+    /**
+     * 标记为常用分类
+     * @param id 分类ID
+     */
+    @Transactional
+    public void markAsFrequent(Long id) {
+        CategoryEntity entity = findById(id);
+        
+        // 只有用户自己创建的分类才能标记为常用（或系统分类）
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (!entity.getIsSystem() && !entity.getCreatedByUserId().equals(currentUserId)) {
+            throw new BusinessException("无法标记其他用户的分类");
+        }
+
+        if (entity.getDeleteTime() != null) {
+            throw new BusinessException("分类已删除，无法标记");
+        }
+
+        entity.setIsFrequent(true);
+        categoryRepository.save(entity);
+    }
+
+    /**
+     * 取消标记常用分类
+     * @param id 分类ID
+     */
+    @Transactional
+    public void unmarkAsFrequent(Long id) {
+        CategoryEntity entity = findById(id);
+        
+        // 只有用户自己创建的分类才能取消标记（或系统分类）
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (!entity.getIsSystem() && !entity.getCreatedByUserId().equals(currentUserId)) {
+            throw new BusinessException("无法取消标记其他用户的分类");
+        }
+
+        if (entity.getDeleteTime() != null) {
+            throw new BusinessException("分类已删除，无法取消标记");
+        }
+
+        entity.setIsFrequent(false);
+        categoryRepository.save(entity);
+    }
+
+    /**
+     * 获取用户的常用分类
+     * @param type 分类类型
+     * @return 常用分类列表
+     */
+    public List<CategoryResponse> getFrequentCategories(TransactionTypeEnum type) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new BusinessException("用户未登录");
+        }
+
+        List<CategoryEntity> entities = categoryRepository.findFrequentCategoriesByTypeAndUserId(
+                type.getCode(), currentUserId);
+        return entities.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
     }
 }
