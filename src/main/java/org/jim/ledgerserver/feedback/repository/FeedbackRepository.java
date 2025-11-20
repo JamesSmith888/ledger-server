@@ -27,4 +27,28 @@ public interface FeedbackRepository extends JpaRepository<FeedbackEntity, Long> 
      */
     @Query("SELECT f FROM feedback f WHERE f.userId = :userId AND f.type = :type AND f.deleteTime IS NULL ORDER BY f.createTime DESC")
     List<FeedbackEntity> findByUserIdAndType(@Param("userId") Long userId, @Param("type") String type);
+
+    /**
+     * 查询所有公开反馈（未删除）
+     */
+    @Query("SELECT f FROM feedback f WHERE f.deleteTime IS NULL ORDER BY f.createTime DESC")
+    List<FeedbackEntity> findAllPublic();
+
+    /**
+     * 根据类型查询所有公开反馈（未删除）
+     */
+    @Query("SELECT f FROM feedback f WHERE f.type = :type AND f.deleteTime IS NULL ORDER BY f.createTime DESC")
+    List<FeedbackEntity> findAllPublicByType(@Param("type") String type);
+
+    /**
+     * 根据状态查询所有公开反馈（未删除）
+     */
+    @Query("SELECT f FROM feedback f WHERE f.status = :status AND f.deleteTime IS NULL ORDER BY f.createTime DESC")
+    List<FeedbackEntity> findAllPublicByStatus(@Param("status") String status);
+
+    /**
+     * 搜索反馈（标题或描述包含关键词，未删除）
+     */
+    @Query("SELECT f FROM feedback f WHERE f.deleteTime IS NULL AND (LOWER(f.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(f.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) ORDER BY f.createTime DESC")
+    List<FeedbackEntity> searchByKeyword(@Param("keyword") String keyword);
 }

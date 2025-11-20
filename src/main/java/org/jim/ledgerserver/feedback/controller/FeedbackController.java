@@ -80,4 +80,102 @@ public class FeedbackController {
         feedbackService.deleteFeedback(id);
         return JSONResult.success("反馈删除成功", null);
     }
+
+    /**
+     * 获取所有公开反馈
+     *
+     * @return 反馈列表
+     */
+    @GetMapping("/public")
+    public JSONResult<List<FeedbackResponse>> getAllPublicFeedbacks() {
+        List<FeedbackResponse> feedbacks = feedbackService.getAllPublicFeedbacks();
+        return JSONResult.success(feedbacks);
+    }
+
+    /**
+     * 根据类型获取公开反馈
+     *
+     * @param type 反馈类型
+     * @return 反馈列表
+     */
+    @GetMapping("/public/type/{type}")
+    public JSONResult<List<FeedbackResponse>> getPublicFeedbacksByType(@PathVariable String type) {
+        List<FeedbackResponse> feedbacks = feedbackService.getPublicFeedbacksByType(type);
+        return JSONResult.success(feedbacks);
+    }
+
+    /**
+     * 根据状态获取公开反馈
+     *
+     * @param status 反馈状态
+     * @return 反馈列表
+     */
+    @GetMapping("/public/status/{status}")
+    public JSONResult<List<FeedbackResponse>> getPublicFeedbacksByStatus(@PathVariable String status) {
+        List<FeedbackResponse> feedbacks = feedbackService.getPublicFeedbacksByStatus(status);
+        return JSONResult.success(feedbacks);
+    }
+
+    /**
+     * 搜索反馈
+     *
+     * @param keyword 关键词
+     * @return 反馈列表
+     */
+    @GetMapping("/search")
+    public JSONResult<List<FeedbackResponse>> searchFeedbacks(@RequestParam String keyword) {
+        List<FeedbackResponse> feedbacks = feedbackService.searchFeedbacks(keyword);
+        return JSONResult.success(feedbacks);
+    }
+
+    /**
+     * 获取反馈的评论列表
+     *
+     * @param feedbackId 反馈ID
+     * @return 评论列表
+     */
+    @GetMapping("/{feedbackId}/comments")
+    public JSONResult<List<org.jim.ledgerserver.feedback.dto.FeedbackCommentResponse>> getFeedbackComments(@PathVariable Long feedbackId) {
+        List<org.jim.ledgerserver.feedback.dto.FeedbackCommentResponse> comments = feedbackService.getFeedbackComments(feedbackId);
+        return JSONResult.success(comments);
+    }
+
+    /**
+     * 添加评论
+     *
+     * @param feedbackId 反馈ID
+     * @param request 评论请求
+     * @return 评论响应
+     */
+    @PostMapping("/{feedbackId}/comments")
+    public JSONResult<org.jim.ledgerserver.feedback.dto.FeedbackCommentResponse> addComment(
+            @PathVariable Long feedbackId,
+            @Valid @RequestBody org.jim.ledgerserver.feedback.dto.AddCommentRequest request) {
+        org.jim.ledgerserver.feedback.dto.FeedbackCommentResponse comment = feedbackService.addComment(feedbackId, request);
+        return JSONResult.success("评论添加成功", comment);
+    }
+
+    /**
+     * 关闭反馈
+     *
+     * @param id 反馈ID
+     * @return 成功消息
+     */
+    @PutMapping("/{id}/close")
+    public JSONResult<String> closeFeedback(@PathVariable Long id) {
+        feedbackService.closeFeedback(id);
+        return JSONResult.success("反馈已关闭", null);
+    }
+
+    /**
+     * 重新打开反馈
+     *
+     * @param id 反馈ID
+     * @return 成功消息
+     */
+    @PutMapping("/{id}/reopen")
+    public JSONResult<String> reopenFeedback(@PathVariable Long id) {
+        feedbackService.reopenFeedback(id);
+        return JSONResult.success("反馈已重新打开", null);
+    }
 }

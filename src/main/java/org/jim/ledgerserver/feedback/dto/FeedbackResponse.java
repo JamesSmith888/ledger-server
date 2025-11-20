@@ -27,6 +27,16 @@ public class FeedbackResponse {
     private Long userId;
 
     /**
+     * 用户名
+     */
+    private String userName;
+
+    /**
+     * 用户昵称
+     */
+    private String userNickname;
+
+    /**
      * 反馈类型：需求/优化/BUG
      */
     private String type;
@@ -62,4 +72,9 @@ public class FeedbackResponse {
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updateTime;
+
+    /**
+     * 评论数量
+     */
+    private Long commentCount;
 }

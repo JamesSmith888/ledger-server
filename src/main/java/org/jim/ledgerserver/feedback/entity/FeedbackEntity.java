@@ -25,6 +25,18 @@ public class FeedbackEntity extends BaseEntity {
     private Long userId;
 
     /**
+     * 用户名
+     */
+    @Column(length = 100)
+    private String userName;
+
+    /**
+     * 用户昵称
+     */
+    @Column(length = 100)
+    private String userNickname;
+
+    /**
      * 反馈类型：需求/优化/BUG
      */
     @Column(nullable = false, length = 20)

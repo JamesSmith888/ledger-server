@@ -59,7 +59,15 @@ public class CategoryService {
             {"娱乐", "ionicons:game-controller", "#AF52DE"},
             {"医疗", "ionicons:medical", "#FF3B30"},
             {"教育", "ionicons:book", "#007AFF"},
-            {"通讯", "ionicons:phone-portrait", "#5AC8FA"}
+            {"通讯", "ionicons:phone-portrait", "#5AC8FA"},
+            {"运动", "ionicons:fitness", "#32ADE6"},
+            {"旅游", "ionicons:airplane", "#FF6B6B"},
+            {"美容", "ionicons:heart", "#FF69B4"},
+            {"宠物", "ionicons:paw", "#FFB347"},
+            {"社交", "ionicons:people", "#9B59B6"},
+            {"维修", "ionicons:construct", "#95A5A6"},
+            {"保险", "ionicons:shield-checkmark", "#3498DB"},
+            {"捐赠", "ionicons:gift", "#E74C3C"}
         };
 
         for (int i = 0; i < expenseCategories.length; i++) {
@@ -84,7 +92,13 @@ public class CategoryService {
             {"工资", "ionicons:wallet", "#34C759"},
             {"奖金", "ionicons:gift", "#FF9500"},
             {"理财", "ionicons:trending-up", "#FFD60A"},
-            {"兼职", "ionicons:briefcase", "#00C7BE"}
+            {"兼职", "ionicons:briefcase", "#00C7BE"},
+            {"投资", "ionicons:stats-chart", "#9C88FF"},
+            {"红包", "ionicons:card", "#FF6B6B"},
+            {"报销", "ionicons:receipt", "#4ECDC4"},
+            {"退款", "ionicons:return-down-back", "#95E1D3"},
+            {"租金", "ionicons:business", "#FFA07A"},
+            {"分红", "ionicons:cash", "#F38181"}
         };
 
         for (int i = 0; i < incomeCategories.length; i++) {
