@@ -13,7 +13,9 @@ import org.jim.ledgerserver.user.dto.RegisterResponse;
 import org.jim.ledgerserver.user.dto.UpdateProfileRequest;
 import org.jim.ledgerserver.user.entity.UserEntity;
 import org.jim.ledgerserver.user.repository.UserRepository;
+import org.jim.ledgerserver.user.event.UserRegisteredEvent;
 import org.jim.ledgerserver.ledger.service.PaymentMethodService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -36,6 +38,8 @@ public class UserService {
     @Resource
     private PaymentMethodService paymentMethodService;
 
+    @Resource
+    private ApplicationEventPublisher eventPublisher;
 
     /**
      * 通过用户名、密码简单注册用户
@@ -91,7 +95,10 @@ public class UserService {
             System.err.println("创建默认支付方式失败: " + e.getMessage());
         }
 
-        // 5. 返回注册结果
+        // 5. 发布用户注册事件（异步创建默认账本）
+        eventPublisher.publishEvent(new UserRegisteredEvent(this, savedUser.getId(), savedUser.getUsername()));
+
+        // 6. 返回注册结果
         return new RegisterResponse(
                 savedUser.getId(),
                 savedUser.getUsername(),

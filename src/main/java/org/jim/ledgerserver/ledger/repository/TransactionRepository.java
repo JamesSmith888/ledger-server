@@ -100,4 +100,19 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
      */
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM transaction t WHERE t.createdByUserId = :createdByUserId AND t.type = :type AND t.deleteTime IS NULL")
     BigDecimal sumAmountByCreatedByUserIdAndType(@Param("createdByUserId") Long createdByUserId, @Param("type") Integer type);
+
+    /**
+     * 查询用户最近一周的分类使用频率统计（用于推荐常用分类）
+     * @param userId 用户ID
+     * @param type 交易类型
+     * @param startTime 开始时间（一周前）
+     * @return [categoryId, count] 分类ID和使用次数
+     */
+    @Query("SELECT t.categoryId, COUNT(t.id) as cnt FROM transaction t " +
+           "WHERE t.createdByUserId = :userId AND t.type = :type " +
+           "AND t.transactionDateTime >= :startTime AND t.deleteTime IS NULL " +
+           "GROUP BY t.categoryId ORDER BY cnt DESC")
+    List<Object[]> findTopCategoriesByUsageInLastWeek(@Param("userId") Long userId, 
+                                                       @Param("type") Integer type, 
+                                                       @Param("startTime") LocalDateTime startTime);
 }

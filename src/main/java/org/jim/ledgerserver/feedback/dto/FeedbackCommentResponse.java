@@ -46,4 +46,19 @@ public class FeedbackCommentResponse {
      * 创建时间
      */
     private LocalDateTime createTime;
+
+    /**
+     * 点赞数
+     */
+    private Long upvoteCount = 0L;
+
+    /**
+     * 倒赞数
+     */
+    private Long downvoteCount = 0L;
+
+    /**
+     * 当前用户的反应类型：upvote/downvote/null
+     */
+    private String userReaction;
 }

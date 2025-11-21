@@ -178,4 +178,79 @@ public class FeedbackController {
         feedbackService.reopenFeedback(id);
         return JSONResult.success("反馈已重新打开", null);
     }
+
+    /**
+     * 对反馈进行点赞
+     *
+     * @param feedbackId 反馈ID
+     * @return 成功消息
+     */
+    @PostMapping("/{feedbackId}/upvote")
+    public JSONResult<String> upvoteFeedback(@PathVariable Long feedbackId) {
+        feedbackService.addReaction(feedbackId, "feedback", "upvote");
+        return JSONResult.success("点赞成功", null);
+    }
+
+    /**
+     * 对反馈进行倒赞
+     *
+     * @param feedbackId 反馈ID
+     * @return 成功消息
+     */
+    @PostMapping("/{feedbackId}/downvote")
+    public JSONResult<String> downvoteFeedback(@PathVariable Long feedbackId) {
+        feedbackService.addReaction(feedbackId, "feedback", "downvote");
+        return JSONResult.success("倒赞成功", null);
+    }
+
+    /**
+     * 取消对反馈的反应
+     *
+     * @param feedbackId 反馈ID
+     * @return 成功消息
+     */
+    @DeleteMapping("/{feedbackId}/reaction")
+    public JSONResult<String> removeFeedbackReaction(@PathVariable Long feedbackId) {
+        feedbackService.removeReaction(feedbackId, "feedback");
+        return JSONResult.success("取消反应成功", null);
+    }
+
+    /**
+     * 对评论进行点赞
+     *
+     * @param feedbackId 反馈ID
+     * @param commentId 评论ID
+     * @return 成功消息
+     */
+    @PostMapping("/{feedbackId}/comments/{commentId}/upvote")
+    public JSONResult<String> upvoteComment(@PathVariable Long feedbackId, @PathVariable Long commentId) {
+        feedbackService.addReaction(commentId, "comment", "upvote");
+        return JSONResult.success("点赞成功", null);
+    }
+
+    /**
+     * 对评论进行倒赞
+     *
+     * @param feedbackId 反馈ID
+     * @param commentId 评论ID
+     * @return 成功消息
+     */
+    @PostMapping("/{feedbackId}/comments/{commentId}/downvote")
+    public JSONResult<String> downvoteComment(@PathVariable Long feedbackId, @PathVariable Long commentId) {
+        feedbackService.addReaction(commentId, "comment", "downvote");
+        return JSONResult.success("倒赞成功", null);
+    }
+
+    /**
+     * 取消对评论的反应
+     *
+     * @param feedbackId 反馈ID
+     * @param commentId 评论ID
+     * @return 成功消息
+     */
+    @DeleteMapping("/{feedbackId}/comments/{commentId}/reaction")
+    public JSONResult<String> removeCommentReaction(@PathVariable Long feedbackId, @PathVariable Long commentId) {
+        feedbackService.removeReaction(commentId, "comment");
+        return JSONResult.success("取消反应成功", null);
+    }
 }

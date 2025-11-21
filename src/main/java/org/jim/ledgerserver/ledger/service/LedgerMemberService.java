@@ -1,7 +1,6 @@
 package org.jim.ledgerserver.ledger.service;
 
 import jakarta.annotation.Resource;
-import org.apache.commons.lang3.StringUtils;
 import org.jim.ledgerserver.common.enums.LedgerMemberRoleEnum;
 import org.jim.ledgerserver.common.enums.LedgerTypeEnum;
 import org.jim.ledgerserver.common.exception.BusinessException;
@@ -9,8 +8,7 @@ import org.jim.ledgerserver.ledger.entity.LedgerEntity;
 import org.jim.ledgerserver.ledger.entity.LedgerMemberEntity;
 import org.jim.ledgerserver.ledger.repository.LedgerMemberRepository;
 import org.jim.ledgerserver.ledger.repository.LedgerRepository;
-import org.jim.ledgerserver.user.entity.UserEntity;
-import org.jim.ledgerserver.user.service.UserService;
+import org.jim.ledgerserver.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -34,7 +32,7 @@ public class LedgerMemberService {
     private LedgerRepository ledgerRepository;
     
     @Resource
-    private UserService userService;
+    private UserRepository userRepository;
 
     /**
      * 添加成员到账本
@@ -55,8 +53,7 @@ public class LedgerMemberService {
         LedgerEntity ledger = validateLedgerForSharing(ledgerId);
         
         // 验证用户是否存在
-        UserEntity user = userService.findById(userId);
-        if (user == null) {
+        if (!userRepository.existsById(userId)) {
             throw new BusinessException("用户不存在");
         }
         

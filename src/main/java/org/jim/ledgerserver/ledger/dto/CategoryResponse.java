@@ -15,6 +15,7 @@ public record CategoryResponse(
         Integer sortOrder,
         Boolean isSystem,
         String description,
-        Boolean isFrequent
+        Boolean isFrequent,
+        Boolean isRecommended  // 是否为系统推荐的常用分类
 ) {
 }

@@ -121,7 +121,8 @@ public class CategoryController {
                 entity.getSortOrder(),
                 entity.getIsSystem(),
                 entity.getDescription(),
-                entity.getIsFrequent()
+                entity.getIsFrequent(),
+                false  // 单个分类查询不涉及推荐标记
         );
         return JSONResult.success(response);
     }

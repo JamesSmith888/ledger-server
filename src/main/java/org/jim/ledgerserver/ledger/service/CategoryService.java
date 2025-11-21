@@ -28,6 +28,9 @@ public class CategoryService {
     @Resource
     private CategoryRepository categoryRepository;
 
+    @Resource
+    private org.jim.ledgerserver.ledger.repository.TransactionRepository transactionRepository;
+
     /**
      * 应用启动时初始化系统预设分类
      */
@@ -432,6 +435,16 @@ public class CategoryService {
      * @return 分类响应DTO
      */
     private CategoryResponse convertToResponse(CategoryEntity entity) {
+        return convertToResponse(entity, false);
+    }
+
+    /**
+     * 转换实体为响应DTO（支持标记是否为推荐）
+     * @param entity 分类实体
+     * @param isRecommended 是否为系统推荐
+     * @return 分类响应DTO
+     */
+    private CategoryResponse convertToResponse(CategoryEntity entity, boolean isRecommended) {
         TransactionTypeEnum typeEnum = entity.getType() == 1 ? 
                 TransactionTypeEnum.INCOME : TransactionTypeEnum.EXPENSE;
                 
@@ -444,7 +457,8 @@ public class CategoryService {
                 entity.getSortOrder(),
                 entity.getIsSystem(),
                 entity.getDescription(),
-                entity.getIsFrequent()
+                entity.getIsFrequent(),
+                isRecommended
         );
     }
 
@@ -493,7 +507,7 @@ public class CategoryService {
     }
 
     /**
-     * 获取用户的常用分类
+     * 获取用户的常用分类（合并用户自定义 + 系统推荐）
      * @param type 分类类型
      * @return 常用分类列表
      */
@@ -503,10 +517,44 @@ public class CategoryService {
             throw new BusinessException("用户未登录");
         }
 
-        List<CategoryEntity> entities = categoryRepository.findFrequentCategoriesByTypeAndUserId(
+        // 1. 获取用户手动标记的常用分类
+        List<CategoryEntity> userFrequentEntities = categoryRepository.findFrequentCategoriesByTypeAndUserId(
                 type.getCode(), currentUserId);
-        return entities.stream()
-                .map(this::convertToResponse)
+        List<Long> userFrequentIds = userFrequentEntities.stream()
+                .map(CategoryEntity::getId)
                 .collect(Collectors.toList());
+        
+        List<CategoryResponse> result = userFrequentEntities.stream()
+                .map(entity -> convertToResponse(entity, false))
+                .collect(Collectors.toList());
+
+        // 2. 获取系统推荐的常用分类（基于最近一周的交易统计 Top3）
+        LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
+        List<Object[]> topCategories = transactionRepository.findTopCategoriesByUsageInLastWeek(
+                currentUserId, type.getCode(), oneWeekAgo);
+        
+        // 取前3个，并排除已被用户手动标记的
+        int recommendCount = 0;
+        for (Object[] row : topCategories) {
+            if (recommendCount >= 3) {
+                break;
+            }
+            
+            Long categoryId = ((Number) row[0]).longValue();
+            // 跳过已在用户常用列表中的分类
+            if (userFrequentIds.contains(categoryId)) {
+                continue;
+            }
+            
+            // 查询分类详情并添加到结果（标记为推荐）
+            categoryRepository.findById(categoryId).ifPresent(entity -> {
+                if (entity.getDeleteTime() == null) {
+                    result.add(convertToResponse(entity, true));
+                }
+            });
+            recommendCount++;
+        }
+
+        return result;
     }
 }

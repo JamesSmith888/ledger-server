@@ -9,7 +9,9 @@ import org.jim.ledgerserver.feedback.dto.FeedbackResponse;
 import org.jim.ledgerserver.feedback.dto.SubmitFeedbackRequest;
 import org.jim.ledgerserver.feedback.entity.FeedbackCommentEntity;
 import org.jim.ledgerserver.feedback.entity.FeedbackEntity;
+import org.jim.ledgerserver.feedback.entity.FeedbackReactionEntity;
 import org.jim.ledgerserver.feedback.repository.FeedbackCommentRepository;
+import org.jim.ledgerserver.feedback.repository.FeedbackReactionRepository;
 import org.jim.ledgerserver.feedback.repository.FeedbackRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,9 @@ public class FeedbackService {
 
     @Resource
     private FeedbackCommentRepository feedbackCommentRepository;
+
+    @Resource
+    private FeedbackReactionRepository feedbackReactionRepository;
 
     /**
      * 提交反馈
@@ -92,6 +97,7 @@ public class FeedbackService {
 
     /**
      * 根据ID获取反馈详情
+     * 所有人都可以查看公开反馈
      *
      * @param id 反馈ID
      * @return 反馈响应
@@ -99,12 +105,6 @@ public class FeedbackService {
     public FeedbackResponse getFeedbackById(Long id) {
         FeedbackEntity feedback = feedbackRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("反馈不存在"));
-
-        // 验证是否是当前用户的反馈
-        Long userId = UserContext.getCurrentUserId();
-        if (!feedback.getUserId().equals(userId)) {
-            throw new BusinessException("无权查看该反馈");
-        }
 
         return toResponse(feedback);
     }
@@ -137,19 +137,24 @@ public class FeedbackService {
     }
 
     /**
-     * 获取所有公开反馈
+     * 获取所有公开反馈（按点赞数排序）
      *
      * @return 反馈列表
      */
     public List<FeedbackResponse> getAllPublicFeedbacks() {
         List<FeedbackEntity> feedbacks = feedbackRepository.findAllPublic();
-        return feedbacks.stream()
+        List<FeedbackResponse> responses = feedbacks.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+        
+        // 按点赞数降序排序（默认排序方式）
+        responses.sort((a, b) -> Long.compare(b.getUpvoteCount(), a.getUpvoteCount()));
+        
+        return responses;
     }
 
     /**
-     * 根据类型获取公开反馈
+     * 根据类型获取公开反馈（按点赞数排序）
      *
      * @param type 反馈类型
      * @return 反馈列表
@@ -160,13 +165,18 @@ public class FeedbackService {
         }
         
         List<FeedbackEntity> feedbacks = feedbackRepository.findAllPublicByType(type);
-        return feedbacks.stream()
+        List<FeedbackResponse> responses = feedbacks.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+        
+        // 按点赞数降序排序
+        responses.sort((a, b) -> Long.compare(b.getUpvoteCount(), a.getUpvoteCount()));
+        
+        return responses;
     }
 
     /**
-     * 根据状态获取公开反馈
+     * 根据状态获取公开反馈（按点赞数排序）
      *
      * @param status 反馈状态
      * @return 反馈列表
@@ -177,13 +187,18 @@ public class FeedbackService {
         }
         
         List<FeedbackEntity> feedbacks = feedbackRepository.findAllPublicByStatus(status);
-        return feedbacks.stream()
+        List<FeedbackResponse> responses = feedbacks.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+        
+        // 按点赞数降序排序
+        responses.sort((a, b) -> Long.compare(b.getUpvoteCount(), a.getUpvoteCount()));
+        
+        return responses;
     }
 
     /**
-     * 搜索反馈
+     * 搜索反馈（按点赞数排序）
      *
      * @param keyword 关键词
      * @return 反馈列表
@@ -194,9 +209,14 @@ public class FeedbackService {
         }
         
         List<FeedbackEntity> feedbacks = feedbackRepository.searchByKeyword(keyword.trim());
-        return feedbacks.stream()
+        List<FeedbackResponse> responses = feedbacks.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+        
+        // 按点赞数降序排序
+        responses.sort((a, b) -> Long.compare(b.getUpvoteCount(), a.getUpvoteCount()));
+        
+        return responses;
     }
 
     /**
@@ -321,7 +341,113 @@ public class FeedbackService {
         long commentCount = feedbackCommentRepository.countByFeedbackIdAndDeleteTimeIsNull(entity.getId());
         response.setCommentCount(commentCount);
         
+        // 添加点赞统计
+        fillReactionStats(response, entity.getId(), "feedback");
+        
         return response;
+    }
+
+    /**
+     * 对反馈或评论进行点赞/倒赞操作
+     *
+     * @param targetId 目标ID（反馈ID或评论ID）
+     * @param targetType 目标类型：feedback 或 comment
+     * @param reactionType 反应类型：upvote 或 downvote
+     */
+    @Transactional
+    public void addReaction(Long targetId, String targetType, String reactionType) {
+        // 验证参数
+        if (!isValidTargetType(targetType) || !isValidReactionType(reactionType)) {
+            throw new BusinessException("参数无效");
+        }
+
+        Long userId = UserContext.getCurrentUserId();
+
+        // 验证目标是否存在
+        if ("feedback".equals(targetType)) {
+            feedbackRepository.findById(targetId)
+                    .orElseThrow(() -> new BusinessException("反馈不存在"));
+        } else {
+            feedbackCommentRepository.findById(targetId)
+                    .orElseThrow(() -> new BusinessException("评论不存在"));
+        }
+
+        // 检查用户是否已经有反应
+        var existingReaction = feedbackReactionRepository
+                .findByTargetIdAndTargetTypeAndUserId(targetId, targetType, userId);
+
+        if (existingReaction.isPresent()) {
+            FeedbackReactionEntity reaction = existingReaction.get();
+            // 如果是相同的反应类型，则删除（取消反应）
+            if (reaction.getReactionType().equals(reactionType)) {
+                feedbackReactionRepository.delete(reaction);
+            } else {
+                // 否则更新反应类型
+                reaction.setReactionType(reactionType);
+                feedbackReactionRepository.save(reaction);
+            }
+        } else {
+            // 创建新反应
+            FeedbackReactionEntity reaction = new FeedbackReactionEntity();
+            reaction.setTargetId(targetId);
+            reaction.setTargetType(targetType);
+            reaction.setUserId(userId);
+            reaction.setReactionType(reactionType);
+            feedbackReactionRepository.save(reaction);
+        }
+    }
+
+    /**
+     * 取消反应
+     *
+     * @param targetId 目标ID
+     * @param targetType 目标类型
+     */
+    @Transactional
+    public void removeReaction(Long targetId, String targetType) {
+        Long userId = UserContext.getCurrentUserId();
+        feedbackReactionRepository.deleteByTargetIdAndTargetTypeAndUserId(targetId, targetType, userId);
+    }
+
+    /**
+     * 获取特定目标的点赞和倒赞统计
+     */
+    private void fillReactionStats(Object response, Long targetId, String targetType) {
+        long upvoteCount = feedbackReactionRepository
+                .countByTargetIdAndTargetTypeAndReactionType(targetId, targetType, "upvote");
+        long downvoteCount = feedbackReactionRepository
+                .countByTargetIdAndTargetTypeAndReactionType(targetId, targetType, "downvote");
+
+        Long userId = UserContext.getCurrentUserId();
+        var userReaction = feedbackReactionRepository
+                .findByTargetIdAndTargetTypeAndUserId(targetId, targetType, userId);
+        String userReactionType = userReaction.map(FeedbackReactionEntity::getReactionType).orElse(null);
+
+        if (response instanceof FeedbackResponse) {
+            FeedbackResponse fbResponse = (FeedbackResponse) response;
+            fbResponse.setUpvoteCount(upvoteCount);
+            fbResponse.setDownvoteCount(downvoteCount);
+            fbResponse.setUserReaction(userReactionType);
+        } else if (response instanceof FeedbackCommentResponse) {
+            FeedbackCommentResponse commentResponse = (FeedbackCommentResponse) response;
+            commentResponse.setUpvoteCount(upvoteCount);
+            commentResponse.setDownvoteCount(downvoteCount);
+            commentResponse.setUserReaction(userReactionType);
+        }
+    }
+
+    /**
+     * 验证目标类型
+     */
+    private boolean isValidTargetType(String targetType) {
+        return "feedback".equals(targetType) || "comment".equals(targetType);
+    }
+
+    /**
+     * 验证反应类型
+     */
+    private boolean isValidReactionType(String reactionType) {
+        return "upvote".equals(reactionType) || "downvote".equals(reactionType);
     }
 
     /**
@@ -336,6 +462,10 @@ public class FeedbackService {
         response.setUserNickname(entity.getUserNickname());
         response.setContent(entity.getContent());
         response.setCreateTime(entity.getCreateTime());
+        
+        // 添加点赞统计
+        fillReactionStats(response, entity.getId(), "comment");
+        
         return response;
     }
 }

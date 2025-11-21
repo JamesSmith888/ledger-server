@@ -77,4 +77,19 @@ public class FeedbackResponse {
      * 评论数量
      */
     private Long commentCount;
+
+    /**
+     * 点赞数
+     */
+    private Long upvoteCount = 0L;
+
+    /**
+     * 倒赞数
+     */
+    private Long downvoteCount = 0L;
+
+    /**
+     * 当前用户的反应类型：upvote/downvote/null
+     */
+    private String userReaction;
 }
