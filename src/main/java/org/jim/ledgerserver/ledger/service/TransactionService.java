@@ -660,4 +660,76 @@ public class TransactionService {
 
         return new ArrayList<>(dailyMap.values());
     }
+
+    /**
+     * 获取月度汇总统计（用于列表页顶部汇总区域）
+     * @param ledgerId 账本ID（可选）
+     * @param startTimeStr 开始时间字符串
+     * @param endTimeStr 结束时间字符串
+     * @param userId 用户ID
+     * @return 月度汇总统计
+     */
+    public org.jim.ledgerserver.ledger.vo.MonthlySummaryResp getMonthlySummary(
+            Long ledgerId,
+            String startTimeStr,
+            String endTimeStr,
+            Long userId) {
+
+        if (userId == null) {
+            throw new BusinessException("用户ID不能为空");
+        }
+
+        LocalDateTime startTime = parseDateTime(startTimeStr);
+        LocalDateTime endTime = parseDateTime(endTimeStr);
+
+        if (startTime.isAfter(endTime)) {
+            throw new BusinessException("开始时间不能晚于结束时间");
+        }
+
+        // 构建查询条件
+        Specification<TransactionEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 未删除的记录
+            predicates.add(cb.isNull(root.get("deleteTime")));
+
+            // 账本ID筛选
+            if (ledgerId != null) {
+                predicates.add(cb.equal(root.get("ledgerId"), ledgerId));
+            } else {
+                // 创建用户ID
+                predicates.add(cb.equal(root.get("createdByUserId"), userId));
+            }
+
+            // 时间范围筛选
+            predicates.add(cb.greaterThanOrEqualTo(root.get("transactionDateTime"), startTime));
+            predicates.add(cb.lessThanOrEqualTo(root.get("transactionDateTime"), endTime));
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        List<TransactionEntity> transactions = transactionRepository.findAll(spec);
+
+        // 计算汇总数据
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        int totalCount = transactions.size();
+
+        for (TransactionEntity tx : transactions) {
+            if (tx.getType() == 1) { // 收入
+                totalIncome = totalIncome.add(tx.getAmount());
+            } else if (tx.getType() == 2) { // 支出
+                totalExpense = totalExpense.add(tx.getAmount());
+            }
+        }
+
+        BigDecimal balance = totalIncome.subtract(totalExpense);
+
+        return new org.jim.ledgerserver.ledger.vo.MonthlySummaryResp(
+                totalIncome,
+                totalExpense,
+                balance,
+                totalCount
+        );
+    }
 }

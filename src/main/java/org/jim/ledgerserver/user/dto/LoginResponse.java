@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
  * @param username   用户名
  * @param nickname   用户昵称
  * @param avatarUrl  用户头像
+ * @param role       用户角色（USER/ADMIN）
  * @author James Smith
  */
 public record LoginResponse(
@@ -24,12 +25,13 @@ public record LoginResponse(
         Long userId,
         String username,
         String nickname,
-        String avatarUrl
+        String avatarUrl,
+        String role
 ) {
     /**
      * 便捷构造器，tokenType 默认为 "Bearer"
      */
-    public LoginResponse(String token, LocalDateTime expiresAt, Long userId, String username, String nickname, String avatarUrl) {
-        this(token, "Bearer", expiresAt, userId, username, nickname, avatarUrl);
+    public LoginResponse(String token, LocalDateTime expiresAt, Long userId, String username, String nickname, String avatarUrl, String role) {
+        this(token, "Bearer", expiresAt, userId, username, nickname, avatarUrl, role);
     }
 }

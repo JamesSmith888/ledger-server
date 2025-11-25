@@ -103,6 +103,7 @@ public class UserService {
                 savedUser.getId(),
                 savedUser.getUsername(),
                 savedUser.getEmail(),
+                savedUser.getRole(),
                 savedUser.getCreateTime()
         );
     }
@@ -140,7 +141,8 @@ public class UserService {
                 user.getId(),
                 user.getUsername(),
                 user.getNickname(),
-                user.getAvatarUrl()
+                user.getAvatarUrl(),
+                user.getRole()
         );
     }
 
@@ -226,7 +228,8 @@ public class UserService {
                 user.getId(),
                 user.getUsername(),
                 user.getNickname(),
-                user.getAvatarUrl()
+                user.getAvatarUrl(),
+                user.getRole()
         );
     }
 
@@ -293,7 +296,8 @@ public class UserService {
                 user.getId(),
                 user.getUsername(),
                 user.getNickname(),
-                user.getAvatarUrl()
+                user.getAvatarUrl(),
+                user.getRole()
         );
     }
 

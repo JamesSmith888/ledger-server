@@ -31,6 +31,12 @@ public class CategoryService {
     @Resource
     private org.jim.ledgerserver.ledger.repository.TransactionRepository transactionRepository;
 
+    @Resource
+    private LedgerService ledgerService;
+
+    @Resource
+    private LedgerMemberService ledgerMemberService;
+
     /**
      * 应用启动时初始化系统预设分类
      */
@@ -556,5 +562,33 @@ public class CategoryService {
         }
 
         return result;
+    }
+
+    /**
+     * 获取指定账本的所有分类
+     * 验证用户对账本的访问权限后，返回用户可见的所有分类
+     * 
+     * @param ledgerId 账本ID
+     * @return 分类列表
+     */
+    public List<CategoryResponse> getCategoriesByLedger(Long ledgerId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new BusinessException("用户未登录");
+        }
+
+        // 验证账本是否存在
+        var ledger = ledgerService.findById(ledgerId);
+        
+        // 验证用户对账本的访问权限
+        boolean hasAccess = ledger.getOwnerUserId().equals(currentUserId) ||
+                ledgerMemberService.hasViewPermission(ledgerId, currentUserId);
+        
+        if (!hasAccess) {
+            throw new BusinessException("无权访问该账本");
+        }
+
+        // 返回用户可见的所有分类（系统分类 + 用户自定义分类）
+        return getAllCategories();
     }
 }

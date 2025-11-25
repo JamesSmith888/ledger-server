@@ -204,6 +204,34 @@ public class TransactionController {
     }
 
     /**
+     * 获取月度汇总统计（用于列表页顶部汇总区域）
+     * @param ledgerId 账本ID（可选）
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return 月度汇总统计
+     */
+    @GetMapping("/monthly-summary")
+    public JSONResult<MonthlySummaryResp> getMonthlySummary(
+            @RequestParam(required = false) Long ledgerId,
+            @RequestParam String startTime,
+            @RequestParam String endTime
+    ) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        MonthlySummaryResp summary = transactionService.getMonthlySummary(
+                ledgerId,
+                startTime,
+                endTime,
+                currentUserId
+        );
+
+        return JSONResult.success(summary);
+    }
+
+    /**
      * 将交易移动到指定账本
      */
     @PostMapping("/{transactionId}/move-ledger")

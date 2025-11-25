@@ -120,7 +120,8 @@ public class OAuthBusinessService {
             user.getId(),
             user.getUsername(),
             user.getNickname(),
-            user.getAvatarUrl()
+            user.getAvatarUrl(),
+            user.getRole()
         );
     }
     

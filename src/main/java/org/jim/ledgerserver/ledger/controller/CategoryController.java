@@ -160,4 +160,14 @@ public class CategoryController {
         List<CategoryResponse> categories = categoryService.getFrequentCategories(typeEnum);
         return JSONResult.success(categories);
     }
+
+    /**
+     * 获取指定账本的所有分类
+     * 注意: 分类不属于账本，属于用户。此接口验证用户对账本的访问权限后返回用户可见的所有分类
+     */
+    @GetMapping("/ledger/{ledgerId}")
+    public JSONResult<List<CategoryResponse>> getCategoriesByLedger(@PathVariable Long ledgerId) {
+        List<CategoryResponse> categories = categoryService.getCategoriesByLedger(ledgerId);
+        return JSONResult.success(categories);
+    }
 }
