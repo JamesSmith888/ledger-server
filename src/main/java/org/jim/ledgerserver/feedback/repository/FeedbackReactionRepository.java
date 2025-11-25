@@ -2,6 +2,8 @@ package org.jim.ledgerserver.feedback.repository;
 
 import org.jim.ledgerserver.feedback.entity.FeedbackReactionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -36,4 +38,17 @@ public interface FeedbackReactionRepository extends JpaRepository<FeedbackReacti
      * 删除用户对特定目标的反应
      */
     void deleteByTargetIdAndTargetTypeAndUserId(Long targetId, String targetType, Long userId);
+
+    /**
+     * 批量查询多个目标的反应统计
+     *
+     * @param targetIds 目标ID列表
+     * @param targetType 目标类型
+     * @return 反应实体列表
+     */
+    @Query("SELECT r FROM feedback_reaction r " +
+           "WHERE r.targetId IN :targetIds AND r.targetType = :targetType")
+    List<FeedbackReactionEntity> findByTargetIdsAndTargetType(
+            @Param("targetIds") List<Long> targetIds,
+            @Param("targetType") String targetType);
 }

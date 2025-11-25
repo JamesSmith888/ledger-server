@@ -556,6 +556,24 @@ public class TransactionService {
     }
 
     /**
+     * 解析时间字符串，支持 ISO_LOCAL_DATE_TIME 和 ISO_ZONED_DATE_TIME
+     */
+    private LocalDateTime parseDateTime(String dateTimeStr) {
+        if (dateTimeStr == null) return null;
+        try {
+            // 尝试解析 ISO_LOCAL_DATE_TIME (e.g. 2023-11-24T10:00:00)
+            return LocalDateTime.parse(dateTimeStr);
+        } catch (Exception e) {
+            try {
+                // 尝试解析 ISO_ZONED_DATE_TIME (e.g. 2023-11-24T10:00:00.000Z)
+                return java.time.ZonedDateTime.parse(dateTimeStr).toLocalDateTime();
+            } catch (Exception ex) {
+                throw new BusinessException("时间格式错误: " + dateTimeStr);
+            }
+        }
+    }
+
+    /**
      * 获取每日统计数据（用于热力图）
      * @param ledgerId 账本ID（可选）
      * @param startTimeStr 开始时间字符串
@@ -573,8 +591,8 @@ public class TransactionService {
             throw new BusinessException("用户ID不能为空");
         }
 
-        LocalDateTime startTime = LocalDateTime.parse(startTimeStr);
-        LocalDateTime endTime = LocalDateTime.parse(endTimeStr);
+        LocalDateTime startTime = parseDateTime(startTimeStr);
+        LocalDateTime endTime = parseDateTime(endTimeStr);
 
         if (startTime.isAfter(endTime)) {
             throw new BusinessException("开始时间不能晚于结束时间");

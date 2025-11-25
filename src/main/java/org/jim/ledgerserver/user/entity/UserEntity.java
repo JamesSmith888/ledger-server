@@ -86,4 +86,24 @@ public class UserEntity extends BaseEntity {
      */
     private Long defaultLedgerId;
 
+    /**
+     * 用户角色：USER-普通用户，ADMIN-管理员
+     */
+    @Column(name = "role", columnDefinition = "varchar(20) default 'USER'")
+    private String role;
+
+    /**
+     * 判断是否为管理员
+     */
+    public boolean isAdmin() {
+        return "ADMIN".equals(this.role);
+    }
+
+    /**
+     * 判断是否为普通用户
+     */
+    public boolean isUser() {
+        return "USER".equals(this.role);
+    }
+
 }

@@ -45,6 +45,11 @@ public class UserProfileResponse {
     private Long defaultLedgerId;
 
     /**
+     * 用户角色：USER-普通用户，ADMIN-管理员
+     */
+    private String role;
+
+    /**
      * 用户状态
      */
     private Integer status;

@@ -1,6 +1,8 @@
 package org.jim.ledgerserver.ledger.entity;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -18,6 +20,16 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @Entity(name = "transaction")
+@Table(name = "transaction", indexes = {
+    @Index(name = "idx_transaction_ledger_query", columnList = "ledger_id,delete_time,transaction_date_time"),
+    @Index(name = "idx_transaction_user_query", columnList = "created_by_user_id,delete_time,transaction_date_time"),
+    @Index(name = "idx_transaction_ledger_type", columnList = "ledger_id,type,delete_time"),
+    @Index(name = "idx_transaction_user_type", columnList = "created_by_user_id,type,delete_time"),
+    @Index(name = "idx_transaction_category", columnList = "category_id,delete_time"),
+    @Index(name = "idx_transaction_ledger_datetime", columnList = "ledger_id,transaction_date_time,delete_time"),
+    @Index(name = "idx_transaction_user_datetime", columnList = "created_by_user_id,transaction_date_time,delete_time"),
+    @Index(name = "idx_transaction_payment_method", columnList = "payment_method_id")
+})
 public class TransactionEntity extends BaseEntity {
 
     /**

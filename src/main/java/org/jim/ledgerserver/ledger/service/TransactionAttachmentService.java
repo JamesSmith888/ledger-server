@@ -227,4 +227,26 @@ public class TransactionAttachmentService {
         return attachmentRepository.countByTransactionId(transactionId);
     }
 
+    /**
+     * 批量统计多个交易的附件数量
+     * @param transactionIds 交易ID列表
+     * @return 交易ID到附件数量的映射
+     */
+    public java.util.Map<Long, Long> countAttachmentsByTransactionIds(List<Long> transactionIds) {
+        if (transactionIds == null || transactionIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+        
+        List<Object[]> results = attachmentRepository.countByTransactionIds(transactionIds);
+        java.util.Map<Long, Long> countMap = new java.util.HashMap<>();
+        
+        for (Object[] result : results) {
+            Long transactionId = (Long) result[0];
+            Long count = (Long) result[1];
+            countMap.put(transactionId, count);
+        }
+        
+        return countMap;
+    }
+
 }

@@ -131,6 +131,7 @@ public class UserController {
                 user.getEmail(),
                 user.getAvatarUrl(),
                 user.getDefaultLedgerId(),
+                user.getRole(),
                 user.getStatus(),
                 user.getCreateTime(),
                 user.getUpdateTime()

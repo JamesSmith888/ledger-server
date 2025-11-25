@@ -92,4 +92,14 @@ public class FeedbackResponse {
      * 当前用户的反应类型：upvote/downvote/null
      */
     private String userReaction;
+
+    /**
+     * 当前用户是否可以删除该反馈
+     */
+    private Boolean canDelete;
+
+    /**
+     * 当前用户是否可以关闭/重开该反馈
+     */
+    private Boolean canClose;
 }

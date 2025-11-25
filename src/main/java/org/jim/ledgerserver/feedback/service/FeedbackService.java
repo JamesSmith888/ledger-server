@@ -17,7 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -36,6 +39,9 @@ public class FeedbackService {
 
     @Resource
     private FeedbackReactionRepository feedbackReactionRepository;
+
+    @Resource
+    private org.jim.ledgerserver.common.util.PermissionUtil permissionUtil;
 
     /**
      * 提交反馈
@@ -111,6 +117,7 @@ public class FeedbackService {
 
     /**
      * 删除反馈（逻辑删除）
+     * 权限：反馈创建者或管理员可以删除
      *
      * @param id 反馈ID
      */
@@ -118,9 +125,8 @@ public class FeedbackService {
         FeedbackEntity feedback = feedbackRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("反馈不存在"));
 
-        // 验证是否是当前用户的反馈
-        Long userId = UserContext.getCurrentUserId();
-        if (!feedback.getUserId().equals(userId)) {
+        // 验证是否有删除权限（创建者或管理员）
+        if (!permissionUtil.canDelete(feedback.getUserId())) {
             throw new BusinessException("无权删除该反馈");
         }
 
@@ -138,14 +144,13 @@ public class FeedbackService {
 
     /**
      * 获取所有公开反馈（按点赞数排序）
+     * 优化：使用批量查询避免N+1问题
      *
      * @return 反馈列表
      */
     public List<FeedbackResponse> getAllPublicFeedbacks() {
         List<FeedbackEntity> feedbacks = feedbackRepository.findAllPublic();
-        List<FeedbackResponse> responses = feedbacks.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<FeedbackResponse> responses = toResponseList(feedbacks);
         
         // 按点赞数降序排序（默认排序方式）
         responses.sort((a, b) -> Long.compare(b.getUpvoteCount(), a.getUpvoteCount()));
@@ -155,6 +160,7 @@ public class FeedbackService {
 
     /**
      * 根据类型获取公开反馈（按点赞数排序）
+     * 优化：使用批量查询避免N+1问题
      *
      * @param type 反馈类型
      * @return 反馈列表
@@ -165,9 +171,7 @@ public class FeedbackService {
         }
         
         List<FeedbackEntity> feedbacks = feedbackRepository.findAllPublicByType(type);
-        List<FeedbackResponse> responses = feedbacks.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<FeedbackResponse> responses = toResponseList(feedbacks);
         
         // 按点赞数降序排序
         responses.sort((a, b) -> Long.compare(b.getUpvoteCount(), a.getUpvoteCount()));
@@ -177,6 +181,7 @@ public class FeedbackService {
 
     /**
      * 根据状态获取公开反馈（按点赞数排序）
+     * 优化：使用批量查询避免N+1问题
      *
      * @param status 反馈状态
      * @return 反馈列表
@@ -187,9 +192,7 @@ public class FeedbackService {
         }
         
         List<FeedbackEntity> feedbacks = feedbackRepository.findAllPublicByStatus(status);
-        List<FeedbackResponse> responses = feedbacks.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<FeedbackResponse> responses = toResponseList(feedbacks);
         
         // 按点赞数降序排序
         responses.sort((a, b) -> Long.compare(b.getUpvoteCount(), a.getUpvoteCount()));
@@ -199,6 +202,7 @@ public class FeedbackService {
 
     /**
      * 搜索反馈（按点赞数排序）
+     * 优化：使用批量查询避免N+1问题
      *
      * @param keyword 关键词
      * @return 反馈列表
@@ -209,9 +213,7 @@ public class FeedbackService {
         }
         
         List<FeedbackEntity> feedbacks = feedbackRepository.searchByKeyword(keyword.trim());
-        List<FeedbackResponse> responses = feedbacks.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<FeedbackResponse> responses = toResponseList(feedbacks);
         
         // 按点赞数降序排序
         responses.sort((a, b) -> Long.compare(b.getUpvoteCount(), a.getUpvoteCount()));
@@ -269,7 +271,8 @@ public class FeedbackService {
     }
 
     /**
-     * 关闭反馈（仅创建者可关闭）
+     * 关闭反馈
+     * 权限：反馈创建者或管理员可以关闭
      *
      * @param id 反馈ID
      */
@@ -278,10 +281,9 @@ public class FeedbackService {
         FeedbackEntity feedback = feedbackRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("反馈不存在"));
 
-        // 验证是否是创建者
-        Long userId = UserContext.getCurrentUserId();
-        if (!feedback.getUserId().equals(userId)) {
-            throw new BusinessException("只有反馈创建者可以关闭反馈");
+        // 验证是否有关闭权限（创建者或管理员）
+        if (!permissionUtil.canClose(feedback.getUserId())) {
+            throw new BusinessException("无权关闭该反馈");
         }
 
         // 更新状态
@@ -291,7 +293,8 @@ public class FeedbackService {
     }
 
     /**
-     * 重新打开反馈（仅创建者可操作）
+     * 重新打开反馈
+     * 权限：反馈创建者或管理员可以重新打开
      *
      * @param id 反馈ID
      */
@@ -300,10 +303,9 @@ public class FeedbackService {
         FeedbackEntity feedback = feedbackRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("反馈不存在"));
 
-        // 验证是否是创建者
-        Long userId = UserContext.getCurrentUserId();
-        if (!feedback.getUserId().equals(userId)) {
-            throw new BusinessException("只有反馈创建者可以重新打开反馈");
+        // 验证是否有重新打开权限（创建者或管理员）
+        if (!permissionUtil.canClose(feedback.getUserId())) {
+            throw new BusinessException("无权重新打开该反馈");
         }
 
         // 更新状态
@@ -344,7 +346,100 @@ public class FeedbackService {
         // 添加点赞统计
         fillReactionStats(response, entity.getId(), "feedback");
         
+        // 设置权限字段
+        response.setCanDelete(permissionUtil.canDelete(entity.getUserId()));
+        response.setCanClose(permissionUtil.canClose(entity.getUserId()));
+        
         return response;
+    }
+
+    /**
+     * 批量将实体转换为响应对象（性能优化版本）
+     * 使用批量查询避免N+1问题
+     */
+    private List<FeedbackResponse> toResponseList(List<FeedbackEntity> entities) {
+        if (entities == null || entities.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 提取所有反馈ID
+        List<Long> feedbackIds = entities.stream()
+                .map(FeedbackEntity::getId)
+                .collect(Collectors.toList());
+
+        // 批量查询评论数量
+        Map<Long, Long> commentCountMap = new HashMap<>();
+        List<Map<String, Object>> commentCounts = feedbackCommentRepository.countByFeedbackIds(feedbackIds);
+        for (Map<String, Object> row : commentCounts) {
+            Long feedbackId = ((Number) row.get("feedbackId")).longValue();
+            Long count = ((Number) row.get("count")).longValue();
+            commentCountMap.put(feedbackId, count);
+        }
+
+        // 批量查询所有反应数据
+        Long currentUserId = UserContext.getCurrentUserId();
+        List<FeedbackReactionEntity> allReactions = feedbackReactionRepository
+                .findByTargetIdsAndTargetType(feedbackIds, "feedback");
+
+        // 构建统计Map
+        Map<Long, Long> upvoteCountMap = new HashMap<>();
+        Map<Long, Long> downvoteCountMap = new HashMap<>();
+        Map<Long, String> userReactionMap = new HashMap<>();
+
+        for (FeedbackReactionEntity reaction : allReactions) {
+            Long targetId = reaction.getTargetId();
+            String reactionType = reaction.getReactionType();
+            
+            // 统计点赞和倒赞数
+            if ("upvote".equals(reactionType)) {
+                upvoteCountMap.put(targetId, upvoteCountMap.getOrDefault(targetId, 0L) + 1);
+            } else if ("downvote".equals(reactionType)) {
+                downvoteCountMap.put(targetId, downvoteCountMap.getOrDefault(targetId, 0L) + 1);
+            }
+            
+            // 记录当前用户的反应
+            if (currentUserId != null && currentUserId.equals(reaction.getUserId())) {
+                userReactionMap.put(targetId, reactionType);
+            }
+        }
+
+        // 获取当前用户并缓存（避免重复查询）
+        org.jim.ledgerserver.user.entity.UserEntity currentUser = permissionUtil.getCurrentUser();
+        boolean isAdmin = currentUser != null && currentUser.isAdmin();
+
+        // 转换为响应对象
+        List<FeedbackResponse> responses = new ArrayList<>();
+        for (FeedbackEntity entity : entities) {
+            FeedbackResponse response = new FeedbackResponse();
+            response.setId(entity.getId());
+            response.setUserId(entity.getUserId());
+            response.setUserName(entity.getUserName());
+            response.setUserNickname(entity.getUserNickname());
+            response.setType(entity.getType());
+            response.setTitle(entity.getTitle());
+            response.setDescription(entity.getDescription());
+            response.setStatus(entity.getStatus());
+            response.setAdminReply(entity.getAdminReply());
+            response.setCreateTime(entity.getCreateTime());
+            response.setUpdateTime(entity.getUpdateTime());
+            
+            // 设置评论数量
+            response.setCommentCount(commentCountMap.getOrDefault(entity.getId(), 0L));
+            
+            // 设置反应统计
+            response.setUpvoteCount(upvoteCountMap.getOrDefault(entity.getId(), 0L));
+            response.setDownvoteCount(downvoteCountMap.getOrDefault(entity.getId(), 0L));
+            response.setUserReaction(userReactionMap.get(entity.getId()));
+            
+            // 设置权限字段（使用缓存的用户信息）
+            boolean isOwner = currentUserId != null && currentUserId.equals(entity.getUserId());
+            response.setCanDelete(isOwner || isAdmin);
+            response.setCanClose(isOwner || isAdmin);
+            
+            responses.add(response);
+        }
+
+        return responses;
     }
 
     /**

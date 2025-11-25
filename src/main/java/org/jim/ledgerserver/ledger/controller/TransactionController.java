@@ -123,9 +123,32 @@ public class TransactionController {
                 pageable
         );
 
-        // 转换为响应对象
-        List<TransactionGetAllResp> content = page.getContent().stream()
-                .map(this::toTransactionResp)
+        // 批量获取用户信息和附件数量，避免N+1查询
+        List<TransactionEntity> transactions = page.getContent();
+        
+        // 收集所有唯一的用户ID
+        List<Long> userIds = transactions.stream()
+                .map(TransactionEntity::getCreatedByUserId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        
+        // 批量查询用户信息
+        java.util.Map<Long, UserEntity> userMap = new java.util.HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<UserEntity> users = userRepository.findAllById(userIds);
+            users.forEach(user -> userMap.put(user.getId(), user));
+        }
+        
+        // 批量查询附件数量
+        List<Long> transactionIds = transactions.stream()
+                .map(TransactionEntity::getId)
+                .toList();
+        java.util.Map<Long, Long> attachmentCountMap = attachmentService.countAttachmentsByTransactionIds(transactionIds);
+
+        // 转换为响应对象（使用批量查询的数据）
+        List<TransactionGetAllResp> content = transactions.stream()
+                .map(tx -> toTransactionResp(tx, userMap, attachmentCountMap))
                 .toList();
 
         TransactionPageResp response = new TransactionPageResp(
@@ -290,6 +313,7 @@ public class TransactionController {
 
     /**
      * 将 TransactionEntity 转换为 TransactionGetAllResp，包含创建人信息和附件数量
+     * （旧版本，兼容性保留，建议使用批量查询版本）
      */
     private TransactionGetAllResp toTransactionResp(TransactionEntity tx) {
         String createdByUserName = null;
@@ -315,6 +339,49 @@ public class TransactionController {
         } catch (Exception e) {
             // 忽略附件查询异常，不影响交易数据返回
         }
+        
+        return new TransactionGetAllResp(
+                tx.getId(),
+                tx.getName(),
+                tx.getDescription(),
+                tx.getAmount(),
+                TransactionTypeEnum.getByCode(tx.getType()),
+                tx.getTransactionDateTime(),
+                tx.getLedgerId(),
+                tx.getCreatedByUserId(),
+                createdByUserName,
+                createdByUserNickname,
+                tx.getCategoryId(),
+                tx.getPaymentMethodId(),
+                attachmentCount
+        );
+    }
+
+    /**
+     * 将 TransactionEntity 转换为 TransactionGetAllResp（批量查询优化版本）
+     * @param tx 交易实体
+     * @param userMap 用户信息映射
+     * @param attachmentCountMap 附件数量映射
+     */
+    private TransactionGetAllResp toTransactionResp(
+            TransactionEntity tx,
+            java.util.Map<Long, UserEntity> userMap,
+            java.util.Map<Long, Long> attachmentCountMap) {
+        
+        String createdByUserName = null;
+        String createdByUserNickname = null;
+        
+        // 从批量查询结果中获取用户信息
+        if (tx.getCreatedByUserId() != null) {
+            UserEntity user = userMap.get(tx.getCreatedByUserId());
+            if (user != null) {
+                createdByUserName = user.getUsername();
+                createdByUserNickname = user.getNickname();
+            }
+        }
+        
+        // 从批量查询结果中获取附件数量
+        long attachmentCount = attachmentCountMap.getOrDefault(tx.getId(), 0L);
         
         return new TransactionGetAllResp(
                 tx.getId(),

@@ -47,4 +47,14 @@ public interface TransactionAttachmentRepository extends JpaRepository<Transacti
     @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM transaction_attachment a WHERE a.transactionId = :transactionId AND a.deleteTime IS NULL")
     long sumFileSizeByTransactionId(@Param("transactionId") Long transactionId);
 
+    /**
+     * 批量统计多个交易的附件数量
+     * @param transactionIds 交易ID列表
+     * @return 对象数组，[transactionId, count]
+     */
+    @Query("SELECT a.transactionId, COUNT(a) FROM transaction_attachment a " +
+           "WHERE a.transactionId IN :transactionIds AND a.deleteTime IS NULL " +
+           "GROUP BY a.transactionId")
+    List<Object[]> countByTransactionIds(@Param("transactionIds") List<Long> transactionIds);
+
 }
