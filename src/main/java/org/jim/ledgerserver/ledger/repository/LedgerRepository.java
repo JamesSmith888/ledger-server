@@ -33,6 +33,13 @@ public interface LedgerRepository extends JpaRepository<LedgerEntity, Long> {
     List<LedgerEntity> findByOwnerUserId(Long ownerUserId);
 
     /**
+     * 根据所有者用户ID查找所有未删除的账本
+     * @param ownerUserId 所有者用户ID
+     * @return 账本列表
+     */
+    List<LedgerEntity> findByOwnerUserIdAndDeleteTimeIsNull(Long ownerUserId);
+
+    /**
      * 根据所有者用户ID分页查找账本
      * @param ownerUserId 所有者用户ID
      * @param pageable 分页参数
