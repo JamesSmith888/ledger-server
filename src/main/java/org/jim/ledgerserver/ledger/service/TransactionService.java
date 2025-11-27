@@ -121,6 +121,7 @@ public class TransactionService {
      * @param startTime 开始时间（可选）
      * @param endTime 结束时间（可选）
      * @param createdByUserId 创建用户ID
+     * @param keyword 搜索关键词（可选，模糊匹配名称和描述）
      * @param pageable 分页参数
      * @return 交易分页结果
      */
@@ -131,6 +132,7 @@ public class TransactionService {
             LocalDateTime startTime,
             LocalDateTime endTime,
             Long createdByUserId,
+            String keyword,
             Pageable pageable) {
 
         if (createdByUserId == null) {
@@ -181,10 +183,34 @@ public class TransactionService {
                 predicates.add(cb.lessThanOrEqualTo(root.get("transactionDateTime"), endTime));
             }
 
+            // 关键词模糊搜索（搜索名称和描述）
+            if (StringUtils.isNotBlank(keyword)) {
+                String pattern = "%" + keyword.trim().toLowerCase() + "%";
+                Predicate namePredicate = cb.like(cb.lower(root.get("name")), pattern);
+                Predicate descPredicate = cb.like(cb.lower(root.get("description")), pattern);
+                predicates.add(cb.or(namePredicate, descPredicate));
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
         return transactionRepository.findAll(spec, pageable);
+    }
+
+    /**
+     * 根据条件分页查询交易（兼容旧接口，不带关键词搜索）
+     * @deprecated 请使用带 keyword 参数的方法
+     */
+    @Deprecated
+    public Page<TransactionEntity> queryTransactions(
+            Long ledgerId,
+            Integer type,
+            Long categoryId,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            Long createdByUserId,
+            Pageable pageable) {
+        return queryTransactions(ledgerId, type, categoryId, startTime, endTime, createdByUserId, null, pageable);
     }
 
     /**

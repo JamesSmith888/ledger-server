@@ -120,6 +120,7 @@ public class TransactionController {
                 request.startTime(),
                 request.endTime(),
                 currentUserId,
+                request.keyword(),
                 pageable
         );
 

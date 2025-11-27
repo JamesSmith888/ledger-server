@@ -1,5 +1,8 @@
 package org.jim.ledgerserver.ledger.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.jim.ledgerserver.common.util.FlexibleLocalDateTimeDeserializer;
+
 import java.time.LocalDateTime;
 
 /**
@@ -25,11 +28,13 @@ public record TransactionQueryReq(
         /**
          * 开始时间（可选）
          */
+        @JsonDeserialize(using = FlexibleLocalDateTimeDeserializer.class)
         LocalDateTime startTime,
 
         /**
          * 结束时间（可选）
          */
+        @JsonDeserialize(using = FlexibleLocalDateTimeDeserializer.class)
         LocalDateTime endTime,
 
         /**
@@ -52,7 +57,13 @@ public record TransactionQueryReq(
          * 排序方向（默认DESC降序）
          * 可选值：ASC, DESC
          */
-        String sortDirection
+        String sortDirection,
+
+        /**
+         * 搜索关键词（可选）
+         * 模糊匹配交易名称、描述
+         */
+        String keyword
 ) {
     public TransactionQueryReq {
         // 设置默认值

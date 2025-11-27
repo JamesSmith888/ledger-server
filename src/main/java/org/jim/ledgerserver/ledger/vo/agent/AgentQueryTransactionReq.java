@@ -1,5 +1,8 @@
 package org.jim.ledgerserver.ledger.vo.agent;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.jim.ledgerserver.common.util.FlexibleLocalDateTimeDeserializer;
+
 import java.time.LocalDateTime;
 
 /**
@@ -19,7 +22,9 @@ public record AgentQueryTransactionReq(
         Long categoryId,
         
         // 时间范围（可选）
+        @JsonDeserialize(using = FlexibleLocalDateTimeDeserializer.class)
         LocalDateTime startTime,
+        @JsonDeserialize(using = FlexibleLocalDateTimeDeserializer.class)
         LocalDateTime endTime,
         
         // 关键词搜索：匹配名称或描述（可选）

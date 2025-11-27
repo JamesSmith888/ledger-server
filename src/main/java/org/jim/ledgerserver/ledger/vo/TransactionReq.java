@@ -1,6 +1,7 @@
 package org.jim.ledgerserver.ledger.vo;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.jim.ledgerserver.common.util.FlexibleLocalDateTimeDeserializer;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 
 import java.math.BigDecimal;
@@ -15,7 +16,7 @@ public record TransactionReq(
         String description,
         BigDecimal amount,
         TransactionTypeEnum type,
-        @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonDeserialize(using = FlexibleLocalDateTimeDeserializer.class)
         LocalDateTime transactionDateTime,
         Long ledgerId,
         Long createdByUserId,
