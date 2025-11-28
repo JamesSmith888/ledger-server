@@ -3,6 +3,7 @@ package org.jim.ledgerserver.ledger.service;
 import jakarta.annotation.Resource;
 import jakarta.persistence.criteria.Predicate;
 import org.apache.commons.lang3.StringUtils;
+import org.jim.ledgerserver.common.enums.TransactionSourceEnum;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 import org.jim.ledgerserver.common.exception.BusinessException;
 import org.jim.ledgerserver.common.util.UserContext;
@@ -38,18 +39,19 @@ public class TransactionService {
 
     /**
      * 创建交易
-     * @param name 交易名称
      * @param description 交易描述
      * @param amount 交易金额
      * @param type 交易类型
      * @param transactionDateTime 交易时间
      * @param ledgerId 账本ID（可选）
      * @param categoryId 分类ID（可选）
+     * @param paymentMethodId 支付方式ID（可选）
+     * @param source 交易来源（可选，默认为手动）
      * @return 创建的交易实体
      */
-    public TransactionEntity create(String name, String description, BigDecimal amount,
+    public TransactionEntity create(String description, BigDecimal amount,
                                     Integer type, LocalDateTime transactionDateTime,
-                                    Long ledgerId, Long categoryId, Long paymentMethodId) {
+                                    Long ledgerId, Long categoryId, Long paymentMethodId, Integer source) {
         if (amount == null) {
             throw new BusinessException("交易金额不能为空");
         }
@@ -67,7 +69,6 @@ public class TransactionService {
         TransactionTypeEnum.fromCode(type);
 
         var transaction = new TransactionEntity();
-        transaction.setName(name);
         transaction.setDescription(description);
         transaction.setAmount(amount);
         transaction.setType(type);
@@ -76,22 +77,23 @@ public class TransactionService {
         transaction.setCreatedByUserId(currentUserId);
         transaction.setCategoryId(categoryId);
         transaction.setPaymentMethodId(paymentMethodId);
+        // 设置来源，默认为手动(1)
+        transaction.setSource(source != null ? source : TransactionSourceEnum.MANUAL.getCode());
 
         return transactionRepository.save(transaction);
     }
 
     /**
-     * 创建交易（兼容旧接口，不指定支付方式）
+     * 创建交易（兼容旧接口，不指定来源，默认手动）
      */
-    public TransactionEntity create(String name, String description, BigDecimal amount,
+    public TransactionEntity create(String description, BigDecimal amount,
                                     Integer type, LocalDateTime transactionDateTime,
-                                    Long ledgerId, Long categoryId) {
-        return create(name, description, amount, type, transactionDateTime, ledgerId, categoryId, null);
+                                    Long ledgerId, Long categoryId, Long paymentMethodId) {
+        return create(description, amount, type, transactionDateTime, ledgerId, categoryId, paymentMethodId, TransactionSourceEnum.MANUAL.getCode());
     }
 
     /**
      * 创建交易（兼容旧接口，不指定分类）
-     * @param name 交易名称
      * @param description 交易描述
      * @param amount 交易金额
      * @param type 交易类型
@@ -99,10 +101,10 @@ public class TransactionService {
      * @param ledgerId 账本ID（可选）
      * @return 创建的交易实体
      */
-    public TransactionEntity create(String name, String description, BigDecimal amount,
+    public TransactionEntity create(String description, BigDecimal amount,
                                     Integer type, LocalDateTime transactionDateTime,
                                     Long ledgerId) {
-        return create(name, description, amount, type, transactionDateTime, ledgerId, null, null);
+        return create(description, amount, type, transactionDateTime, ledgerId, null, null);
     }
 
     /**
@@ -183,12 +185,11 @@ public class TransactionService {
                 predicates.add(cb.lessThanOrEqualTo(root.get("transactionDateTime"), endTime));
             }
 
-            // 关键词模糊搜索（搜索名称和描述）
+            // 关键词模糊搜索（搜索描述）
             if (StringUtils.isNotBlank(keyword)) {
                 String pattern = "%" + keyword.trim().toLowerCase() + "%";
-                Predicate namePredicate = cb.like(cb.lower(root.get("name")), pattern);
                 Predicate descPredicate = cb.like(cb.lower(root.get("description")), pattern);
-                predicates.add(cb.or(namePredicate, descPredicate));
+                predicates.add(descPredicate);
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -341,7 +342,6 @@ public class TransactionService {
     /**
      * 更新交易
      * @param id 交易ID
-     * @param name 交易名称
      * @param description 交易描述
      * @param amount 交易金额
      * @param type 交易类型
@@ -349,14 +349,9 @@ public class TransactionService {
      * @param categoryId 分类ID
      * @return 更新后的交易实体
      */
-    public TransactionEntity update(Long id, String name, String description, BigDecimal amount,
+    public TransactionEntity update(Long id, String description, BigDecimal amount,
                                     Integer type, LocalDateTime transactionDateTime, Long categoryId) {
         var transaction = findById(id);
-
-        // 使用增强的 switch 进行条件更新
-        if (StringUtils.isNotBlank(name)) {
-            transaction.setName(name);
-        }
 
         if (description != null) {
             transaction.setDescription(description);
@@ -388,16 +383,15 @@ public class TransactionService {
     /**
      * 更新交易（兼容旧接口，不更新分类）
      * @param id 交易ID
-     * @param name 交易名称
      * @param description 交易描述
      * @param amount 交易金额
      * @param type 交易类型
      * @param transactionDateTime 交易时间
      * @return 更新后的交易实体
      */
-    public TransactionEntity update(Long id, String name, String description, BigDecimal amount,
+    public TransactionEntity update(Long id, String description, BigDecimal amount,
                                     Integer type, LocalDateTime transactionDateTime) {
-        return update(id, name, description, amount, type, transactionDateTime, null);
+        return update(id, description, amount, type, transactionDateTime, null);
     }
 
     /**

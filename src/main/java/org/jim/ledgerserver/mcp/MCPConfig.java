@@ -1,12 +1,6 @@
 package org.jim.ledgerserver.mcp;
 
 import lombok.extern.slf4j.Slf4j;
-import org.jim.ledgerserver.ledger.service.CategoryMCP;
-import org.jim.ledgerserver.ledger.service.TransactionMCP;
-import org.jim.ledgerserver.user.service.UserMCP;
-import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.tool.method.MethodToolCallbackProvider;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**

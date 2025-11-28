@@ -11,6 +11,7 @@ import org.jim.ledgerserver.ledger.entity.TransactionEntity;
 import org.jim.ledgerserver.ledger.repository.TransactionRepository;
 import org.jim.ledgerserver.ledger.service.*;
 import org.jim.ledgerserver.ledger.vo.agent.*;
+import org.jim.ledgerserver.common.enums.TransactionSourceEnum;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 import org.jim.ledgerserver.user.entity.UserEntity;
 import org.jim.ledgerserver.user.repository.UserRepository;
@@ -80,16 +81,16 @@ public class AgentController {
             return JSONResult.fail("无权限在该账本中创建交易");
         }
 
-        // 创建交易
+        // 创建交易（来源为 AI）
         TransactionEntity transaction = transactionService.create(
-                request.name(),
                 request.description(),
                 request.amount(),
                 request.type().getCode(),
                 request.transactionDateTime() != null ? request.transactionDateTime() : LocalDateTime.now(),
                 request.ledgerId(),
                 request.categoryId(),
-                request.paymentMethodId()
+                request.paymentMethodId(),
+                TransactionSourceEnum.AI.getCode()
         );
 
         // 构建完整的响应数据
@@ -456,7 +457,6 @@ public class AgentController {
 
         return new AgentTransactionResp(
                 tx.getId(),
-                tx.getName(),
                 tx.getDescription(),
                 tx.getAmount(),
                 TransactionTypeEnum.getByCode(tx.getType()),
@@ -471,7 +471,8 @@ public class AgentController {
                 tx.getCreatedByUserId(),
                 createdByUserName,
                 createdByUserNickname,
-                attachmentCount
+                attachmentCount,
+                TransactionSourceEnum.getByCode(tx.getSource())
         );
     }
 
@@ -549,9 +550,6 @@ public class AgentController {
             }
 
             // 更新提供的字段
-            if (request.name() != null) {
-                transaction.setName(request.name());
-            }
             if (request.description() != null) {
                 transaction.setDescription(request.description());
             }
@@ -637,18 +635,18 @@ public class AgentController {
             AgentBatchCreateTransactionReq.TransactionItem item = request.transactions().get(i);
             try {
                 TransactionEntity transaction = transactionService.create(
-                        item.name(),
                         item.description(),
                         item.amount(),
                         item.type().getCode(),
                         item.transactionDateTime() != null ? item.transactionDateTime() : LocalDateTime.now(),
                         request.ledgerId(),
                         item.categoryId(),
-                        item.paymentMethodId()
+                        item.paymentMethodId(),
+                        TransactionSourceEnum.AI.getCode()  // 批量创建也标记为 AI 来源
                 );
                 successItems.add(buildAgentTransactionResp(transaction));
             } catch (Exception e) {
-                failedItems.add(new AgentBatchResultResp.FailedItem(i, item.name(), e.getMessage()));
+                failedItems.add(new AgentBatchResultResp.FailedItem(i, item.description(), e.getMessage()));
             }
         }
 
@@ -686,7 +684,7 @@ public class AgentController {
 
         try {
             LocalDateTime start = parseDateTime(startTime);
-            LocalDateTime end = parseDateTime(endTime);
+            LocalDateTime end = parseDateTimeAsEnd(endTime);
             final Integer typeCode = (type != null && !type.isEmpty()) 
                     ? TransactionTypeEnum.valueOf(type).getCode() 
                     : null;
@@ -953,23 +951,555 @@ public class AgentController {
     }
 
     /**
-     * 解析时间字符串
+     * 解析时间字符串（作为开始时间，当天 00:00:00）
      */
     private LocalDateTime parseDateTime(String dateTimeStr) {
+        return parseDateTimeInternal(dateTimeStr, false);
+    }
+
+    /**
+     * 解析时间字符串作为结束时间（当天 23:59:59.999999999）
+     */
+    private LocalDateTime parseDateTimeAsEnd(String dateTimeStr) {
+        return parseDateTimeInternal(dateTimeStr, true);
+    }
+
+    /**
+     * 内部时间解析方法
+     * @param dateTimeStr 时间字符串
+     * @param asEndOfDay 如果是纯日期格式，是否解析为当天结束时间
+     */
+    private LocalDateTime parseDateTimeInternal(String dateTimeStr, boolean asEndOfDay) {
         if (dateTimeStr == null) return null;
         try {
+            // 尝试完整的 LocalDateTime 格式 (2025-11-28T12:30:00)
             return LocalDateTime.parse(dateTimeStr);
         } catch (Exception e) {
             try {
+                // 尝试 ZonedDateTime 格式
                 return java.time.ZonedDateTime.parse(dateTimeStr).toLocalDateTime();
             } catch (Exception ex) {
-                // 尝试日期格式
+                // 尝试日期格式 (2025-11-28)
                 try {
-                    return java.time.LocalDate.parse(dateTimeStr).atStartOfDay();
+                    java.time.LocalDate date = java.time.LocalDate.parse(dateTimeStr);
+                    if (asEndOfDay) {
+                        // 结束时间：当天 23:59:59.999999999
+                        return date.atTime(java.time.LocalTime.MAX);
+                    } else {
+                        // 开始时间：当天 00:00:00
+                        return date.atStartOfDay();
+                    }
                 } catch (Exception ex2) {
                     throw new RuntimeException("时间格式错误: " + dateTimeStr);
                 }
             }
         }
+    }
+
+    // ==================== 增强分析 API ====================
+
+    /**
+     * 统一分析接口 - Agent 专用
+     * 支持多种分析类型：summary/trend/category_breakdown/comparison/ranking
+     */
+    @PostMapping("/analyze")
+    public JSONResult<AgentAnalysisResp> analyze(@RequestBody AgentAnalysisReq request) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        if (request.ledgerId() != null && !canViewLedger(request.ledgerId(), currentUserId)) {
+            return JSONResult.fail("无权限查看该账本");
+        }
+
+        try {
+            LocalDateTime start = parseDateTime(request.startTime());
+            LocalDateTime end = parseDateTimeAsEnd(request.endTime());
+            long days = java.time.temporal.ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()) + 1;
+            
+            // 获取交易数据
+            List<TransactionEntity> transactions = queryTransactionsForAnalysis(
+                    request.ledgerId(), currentUserId, start, end, 
+                    request.type(), request.categoryIds()
+            );
+
+            // 根据分析类型处理
+            String analysisType = request.analysisType() != null ? request.analysisType().toLowerCase() : "summary";
+            
+            return switch (analysisType) {
+                case "trend" -> JSONResult.success(buildTrendAnalysis(request, transactions, days));
+                case "category_breakdown" -> JSONResult.success(buildCategoryBreakdown(request, transactions, days));
+                case "comparison" -> JSONResult.success(buildComparison(request, currentUserId, transactions, days));
+                case "ranking" -> JSONResult.success(buildRanking(request, transactions, days));
+                default -> JSONResult.success(buildSummaryAnalysis(request, transactions, days));
+            };
+        } catch (Exception e) {
+            return JSONResult.fail("分析失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询分析用的交易数据
+     */
+    private List<TransactionEntity> queryTransactionsForAnalysis(
+            Long ledgerId, Long userId,
+            LocalDateTime start, LocalDateTime end,
+            String type, List<Long> categoryIds
+    ) {
+        final Integer typeCode = (type != null && !type.isEmpty()) 
+                ? TransactionTypeEnum.valueOf(type).getCode() 
+                : null;
+
+        Specification<TransactionEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.isNull(root.get("deleteTime")));
+            
+            if (ledgerId != null) {
+                predicates.add(cb.equal(root.get("ledgerId"), ledgerId));
+            } else {
+                predicates.add(cb.equal(root.get("createdByUserId"), userId));
+            }
+            
+            predicates.add(cb.greaterThanOrEqualTo(root.get("transactionDateTime"), start));
+            predicates.add(cb.lessThanOrEqualTo(root.get("transactionDateTime"), end));
+            
+            if (typeCode != null) {
+                predicates.add(cb.equal(root.get("type"), typeCode));
+            }
+            
+            if (categoryIds != null && !categoryIds.isEmpty()) {
+                predicates.add(root.get("categoryId").in(categoryIds));
+            }
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return transactionRepository.findAll(spec);
+    }
+
+    /**
+     * 构建汇总分析
+     */
+    private AgentAnalysisResp buildSummaryAnalysis(
+            AgentAnalysisReq request, 
+            List<TransactionEntity> transactions, 
+            long days
+    ) {
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        
+        for (TransactionEntity tx : transactions) {
+            if (tx.getType() == TransactionTypeEnum.INCOME.getCode()) {
+                totalIncome = totalIncome.add(tx.getAmount());
+            } else {
+                totalExpense = totalExpense.add(tx.getAmount());
+            }
+        }
+
+        // 按分类统计
+        List<AgentAnalysisResp.CategoryDetail> categoryBreakdown = buildCategoryDetails(transactions, days);
+
+        return AgentAnalysisResp.summary(
+                request.startTime(), request.endTime(),
+                totalIncome, totalExpense,
+                (long) transactions.size(), days,
+                categoryBreakdown
+        );
+    }
+
+    /**
+     * 构建趋势分析
+     */
+    private AgentAnalysisResp buildTrendAnalysis(
+            AgentAnalysisReq request,
+            List<TransactionEntity> transactions,
+            long days
+    ) {
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        
+        for (TransactionEntity tx : transactions) {
+            if (tx.getType() == TransactionTypeEnum.INCOME.getCode()) {
+                totalIncome = totalIncome.add(tx.getAmount());
+            } else {
+                totalExpense = totalExpense.add(tx.getAmount());
+            }
+        }
+
+        String groupBy = request.groupBy() != null ? request.groupBy().toLowerCase() : "day";
+        List<AgentAnalysisResp.TrendPoint> trendData = new ArrayList<>();
+
+        // 按时间分组
+        var grouped = transactions.stream()
+                .collect(Collectors.groupingBy(tx -> {
+                    LocalDateTime dt = tx.getTransactionDateTime();
+                    return switch (groupBy) {
+                        case "week" -> dt.toLocalDate().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).toString();
+                        case "month" -> dt.getYear() + "-" + String.format("%02d", dt.getMonthValue());
+                        default -> dt.toLocalDate().toString(); // day
+                    };
+                }));
+
+        // 排序并构建趋势点
+        grouped.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    String date = entry.getKey();
+                    List<TransactionEntity> txList = entry.getValue();
+                    
+                    BigDecimal income = txList.stream()
+                            .filter(t -> t.getType() == TransactionTypeEnum.INCOME.getCode())
+                            .map(TransactionEntity::getAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal expense = txList.stream()
+                            .filter(t -> t.getType() == TransactionTypeEnum.EXPENSE.getCode())
+                            .map(TransactionEntity::getAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    
+                    String label = formatTrendLabel(date, groupBy);
+                    
+                    trendData.add(new AgentAnalysisResp.TrendPoint(
+                            label, date, income, expense,
+                            income.subtract(expense), (long) txList.size()
+                    ));
+                });
+
+        return AgentAnalysisResp.trend(
+                request.startTime(), request.endTime(), groupBy,
+                totalIncome, totalExpense,
+                (long) transactions.size(), days,
+                trendData
+        );
+    }
+
+    /**
+     * 格式化趋势标签
+     */
+    private String formatTrendLabel(String date, String groupBy) {
+        return switch (groupBy) {
+            case "week" -> {
+                var d = java.time.LocalDate.parse(date);
+                yield String.format("%d月第%d周", d.getMonthValue(), (d.getDayOfMonth() - 1) / 7 + 1);
+            }
+            case "month" -> {
+                String[] parts = date.split("-");
+                yield parts[1] + "月";
+            }
+            default -> {
+                String[] parts = date.split("-");
+                yield parts[1] + "-" + parts[2];
+            }
+        };
+    }
+
+    /**
+     * 构建分类明细
+     */
+    private AgentAnalysisResp buildCategoryBreakdown(
+            AgentAnalysisReq request,
+            List<TransactionEntity> transactions,
+            long days
+    ) {
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        
+        for (TransactionEntity tx : transactions) {
+            if (tx.getType() == TransactionTypeEnum.INCOME.getCode()) {
+                totalIncome = totalIncome.add(tx.getAmount());
+            } else {
+                totalExpense = totalExpense.add(tx.getAmount());
+            }
+        }
+
+        List<AgentAnalysisResp.CategoryDetail> categoryBreakdown = buildCategoryDetails(transactions, days);
+
+        return AgentAnalysisResp.summary(
+                request.startTime(), request.endTime(),
+                totalIncome, totalExpense,
+                (long) transactions.size(), days,
+                categoryBreakdown
+        );
+    }
+
+    /**
+     * 构建分类详情列表
+     */
+    private List<AgentAnalysisResp.CategoryDetail> buildCategoryDetails(
+            List<TransactionEntity> transactions, 
+            long days
+    ) {
+        // 按类型分组计算总额
+        BigDecimal totalExpense = transactions.stream()
+                .filter(t -> t.getType() == TransactionTypeEnum.EXPENSE.getCode())
+                .map(TransactionEntity::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalIncome = transactions.stream()
+                .filter(t -> t.getType() == TransactionTypeEnum.INCOME.getCode())
+                .map(TransactionEntity::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 按分类和类型分组
+        var grouped = transactions.stream()
+                .filter(t -> t.getCategoryId() != null)
+                .collect(Collectors.groupingBy(t -> t.getCategoryId() + "_" + t.getType()));
+
+        List<AgentAnalysisResp.CategoryDetail> details = new ArrayList<>();
+        
+        for (var entry : grouped.entrySet()) {
+            String[] parts = entry.getKey().split("_");
+            Long categoryId = Long.parseLong(parts[0]);
+            int typeCode = Integer.parseInt(parts[1]);
+            List<TransactionEntity> txList = entry.getValue();
+            
+            BigDecimal amount = txList.stream()
+                    .map(TransactionEntity::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            String categoryName = "未知分类";
+            String categoryIcon = "📁";
+            try {
+                CategoryEntity cat = categoryService.findById(categoryId);
+                categoryName = cat.getName();
+                categoryIcon = cat.getIcon();
+            } catch (Exception ignored) {}
+            
+            String type = typeCode == TransactionTypeEnum.INCOME.getCode() ? "INCOME" : "EXPENSE";
+            BigDecimal typeTotal = type.equals("INCOME") ? totalIncome : totalExpense;
+            
+            double percentage = typeTotal.compareTo(BigDecimal.ZERO) > 0
+                    ? amount.divide(typeTotal, 4, java.math.RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100))
+                            .doubleValue()
+                    : 0.0;
+            
+            BigDecimal dailyAvg = days > 0 
+                    ? amount.divide(BigDecimal.valueOf(days), 2, java.math.RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            
+            details.add(new AgentAnalysisResp.CategoryDetail(
+                    categoryId, categoryName, categoryIcon, type,
+                    amount, (long) txList.size(), percentage, dailyAvg, null
+            ));
+        }
+        
+        // 按金额降序排序
+        details.sort((a, b) -> b.amount().compareTo(a.amount()));
+        return details;
+    }
+
+    /**
+     * 构建对比分析
+     */
+    private AgentAnalysisResp buildComparison(
+            AgentAnalysisReq request,
+            Long userId,
+            List<TransactionEntity> currentTransactions,
+            long days
+    ) {
+        // 当前期间汇总
+        BigDecimal currentIncome = BigDecimal.ZERO;
+        BigDecimal currentExpense = BigDecimal.ZERO;
+        for (TransactionEntity tx : currentTransactions) {
+            if (tx.getType() == TransactionTypeEnum.INCOME.getCode()) {
+                currentIncome = currentIncome.add(tx.getAmount());
+            } else {
+                currentExpense = currentExpense.add(tx.getAmount());
+            }
+        }
+
+        // 获取对比期间数据
+        List<TransactionEntity> previousTransactions = List.of();
+        BigDecimal previousIncome = BigDecimal.ZERO;
+        BigDecimal previousExpense = BigDecimal.ZERO;
+        String compareStart = request.compareStartTime();
+        String compareEnd = request.compareEndTime();
+        
+        // 如果没有指定对比期间，自动计算上一期
+        if (compareStart == null || compareEnd == null) {
+            LocalDateTime start = parseDateTime(request.startTime());
+            LocalDateTime end = parseDateTimeAsEnd(request.endTime());
+            long periodDays = java.time.temporal.ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()) + 1;
+            
+            LocalDateTime prevEnd = start.minusDays(1);
+            LocalDateTime prevStart = prevEnd.minusDays(periodDays - 1);
+            compareStart = prevStart.toLocalDate().toString();
+            compareEnd = prevEnd.toLocalDate().toString();
+        }
+        
+        previousTransactions = queryTransactionsForAnalysis(
+                request.ledgerId(), userId,
+                parseDateTime(compareStart), parseDateTimeAsEnd(compareEnd),
+                request.type(), request.categoryIds()
+        );
+        
+        for (TransactionEntity tx : previousTransactions) {
+            if (tx.getType() == TransactionTypeEnum.INCOME.getCode()) {
+                previousIncome = previousIncome.add(tx.getAmount());
+            } else {
+                previousExpense = previousExpense.add(tx.getAmount());
+            }
+        }
+
+        // 计算变化率
+        Double incomeChangeRate = calculateChangeRate(currentIncome, previousIncome);
+        Double expenseChangeRate = calculateChangeRate(currentExpense, previousExpense);
+        BigDecimal currentBalance = currentIncome.subtract(currentExpense);
+        BigDecimal previousBalance = previousIncome.subtract(previousExpense);
+        Double balanceChangeRate = calculateChangeRate(currentBalance, previousBalance);
+
+        // 构建期间汇总
+        AgentAnalysisResp.PeriodSummary current = new AgentAnalysisResp.PeriodSummary(
+                request.startTime(), request.endTime(), "当前期间",
+                currentIncome, currentExpense, currentBalance, (long) currentTransactions.size()
+        );
+        AgentAnalysisResp.PeriodSummary previous = new AgentAnalysisResp.PeriodSummary(
+                compareStart, compareEnd, "对比期间",
+                previousIncome, previousExpense, previousBalance, (long) previousTransactions.size()
+        );
+
+        // 分类对比
+        List<AgentAnalysisResp.CategoryComparison> categoryComparisons = buildCategoryComparisons(
+                currentTransactions, previousTransactions
+        );
+
+        AgentAnalysisResp.ComparisonData comparison = new AgentAnalysisResp.ComparisonData(
+                current, previous,
+                incomeChangeRate, expenseChangeRate, balanceChangeRate,
+                categoryComparisons
+        );
+
+        return AgentAnalysisResp.comparison(
+                request.startTime(), request.endTime(),
+                currentIncome, currentExpense,
+                (long) currentTransactions.size(), days,
+                comparison
+        );
+    }
+
+    /**
+     * 计算变化率
+     */
+    private Double calculateChangeRate(BigDecimal current, BigDecimal previous) {
+        if (previous.compareTo(BigDecimal.ZERO) == 0) {
+            return current.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0;
+        }
+        return current.subtract(previous)
+                .divide(previous.abs(), 4, java.math.RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .doubleValue();
+    }
+
+    /**
+     * 构建分类对比
+     */
+    private List<AgentAnalysisResp.CategoryComparison> buildCategoryComparisons(
+            List<TransactionEntity> current,
+            List<TransactionEntity> previous
+    ) {
+        // 当前期间按分类汇总
+        Map<String, BigDecimal> currentByCategory = current.stream()
+                .filter(t -> t.getCategoryId() != null)
+                .collect(Collectors.groupingBy(
+                        t -> t.getCategoryId() + "_" + t.getType(),
+                        Collectors.reducing(BigDecimal.ZERO, TransactionEntity::getAmount, BigDecimal::add)
+                ));
+        
+        // 对比期间按分类汇总
+        Map<String, BigDecimal> previousByCategory = previous.stream()
+                .filter(t -> t.getCategoryId() != null)
+                .collect(Collectors.groupingBy(
+                        t -> t.getCategoryId() + "_" + t.getType(),
+                        Collectors.reducing(BigDecimal.ZERO, TransactionEntity::getAmount, BigDecimal::add)
+                ));
+        
+        // 合并所有分类
+        var allKeys = new java.util.HashSet<String>();
+        allKeys.addAll(currentByCategory.keySet());
+        allKeys.addAll(previousByCategory.keySet());
+        
+        List<AgentAnalysisResp.CategoryComparison> comparisons = new ArrayList<>();
+        for (String key : allKeys) {
+            String[] parts = key.split("_");
+            Long categoryId = Long.parseLong(parts[0]);
+            int typeCode = Integer.parseInt(parts[1]);
+            
+            BigDecimal currentAmount = currentByCategory.getOrDefault(key, BigDecimal.ZERO);
+            BigDecimal previousAmount = previousByCategory.getOrDefault(key, BigDecimal.ZERO);
+            
+            String categoryName = "未知分类";
+            String categoryIcon = "📁";
+            try {
+                CategoryEntity cat = categoryService.findById(categoryId);
+                categoryName = cat.getName();
+                categoryIcon = cat.getIcon();
+            } catch (Exception ignored) {}
+            
+            String type = typeCode == TransactionTypeEnum.INCOME.getCode() ? "INCOME" : "EXPENSE";
+            Double changeRate = calculateChangeRate(currentAmount, previousAmount);
+            
+            comparisons.add(new AgentAnalysisResp.CategoryComparison(
+                    categoryId, categoryName, categoryIcon, type,
+                    currentAmount, previousAmount, changeRate
+            ));
+        }
+        
+        // 按当前金额降序排序
+        comparisons.sort((a, b) -> b.currentAmount().compareTo(a.currentAmount()));
+        return comparisons;
+    }
+
+    /**
+     * 构建排行分析
+     */
+    private AgentAnalysisResp buildRanking(
+            AgentAnalysisReq request,
+            List<TransactionEntity> transactions,
+            long days
+    ) {
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        
+        for (TransactionEntity tx : transactions) {
+            if (tx.getType() == TransactionTypeEnum.INCOME.getCode()) {
+                totalIncome = totalIncome.add(tx.getAmount());
+            } else {
+                totalExpense = totalExpense.add(tx.getAmount());
+            }
+        }
+
+        int topN = request.topN() != null ? request.topN() : 10;
+        BigDecimal total = totalIncome.add(totalExpense);
+        
+        // 按分类汇总排序
+        var categoryStats = buildCategoryDetails(transactions, days);
+        
+        List<AgentAnalysisResp.RankingItem> ranking = new ArrayList<>();
+        int rank = 1;
+        for (var cat : categoryStats) {
+            if (rank > topN) break;
+            
+            double percentage = total.compareTo(BigDecimal.ZERO) > 0
+                    ? cat.amount().divide(total, 4, java.math.RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100))
+                            .doubleValue()
+                    : 0.0;
+            
+            ranking.add(new AgentAnalysisResp.RankingItem(
+                    rank++,
+                    cat.categoryName(),
+                    cat.categoryIcon(),
+                    cat.amount(),
+                    cat.count(),
+                    percentage
+            ));
+        }
+
+        return AgentAnalysisResp.ranking(
+                request.startTime(), request.endTime(),
+                totalIncome, totalExpense,
+                (long) transactions.size(), days,
+                ranking
+        );
     }
 }

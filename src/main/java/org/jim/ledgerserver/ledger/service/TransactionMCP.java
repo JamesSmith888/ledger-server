@@ -1,3 +1,4 @@
+/*
 package org.jim.ledgerserver.ledger.service;
 
 import jakarta.annotation.Resource;
@@ -15,10 +16,12 @@ import java.util.stream.Collectors;
 
 import static org.jim.ledgerserver.common.enums.TransactionTypeEnum.getTypeDescription;
 
+*/
 /**
  * 交易 MCP 工具类
  * @author James Smith
- */
+ *//*
+
 @Component
 @Slf4j
 public class TransactionMCP {
@@ -29,10 +32,10 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Create a new transaction (income or expense record)
-            
+
             Prerequisites:
             - NONE - Direct transaction creation process
-            
+
             Parameters:
             - name: Transaction name/title (required)
             - description: Transaction description (optional)
@@ -40,15 +43,15 @@ public class TransactionMCP {
             - type: Transaction type (required, "1" for INCOME, "2" for EXPENSE)
             - ledgerId: Associated ledger ID (optional)
             - categoryId: Associated category ID (optional)
-            
+
             Returns:
             - Success: Transaction creation successful message with transaction info
             - Failure: Error message if creation fails
-            
+
             Error Handling:
             - If amount is not positive: Return "交易金额必须大于0" error
             - If type is invalid: Return "无效的交易类型" error
-            
+
             Workflow:
             1. Validate required parameters (name, amount, type)
             2. Validate amount is positive
@@ -82,7 +85,7 @@ public class TransactionMCP {
             context.progress(p -> p.progress(1.0).total(1.0).message("Task completed"));
         }
 
-        var transaction = transactionService.create(name, description, amount, type, LocalDateTime.now(), ledgerId, categoryId);
+        var transaction = transactionService.create(name, description, amount, type, LocalDateTime.now(), ledgerId, categoryId,null);
         log.info("Transaction created: {}", transaction);
 
         return String.format("交易创建成功: ID=%d, 名称=%s, 金额=%.2f, 类型=%s",
@@ -94,17 +97,17 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Query transaction details by transaction ID
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - id: Transaction ID (required)
-            
+
             Returns:
             - Success: Transaction details including name, amount, type, date, etc.
             - Failure: Error message if transaction not found
-            
+
             Workflow:
             1. Validate transaction ID is provided
             2. Query transaction from database
@@ -118,17 +121,17 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Query all transactions for a specific ledger
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - ledgerId: Ledger ID (required)
-            
+
             Returns:
             - Success: List of transactions with their details
             - Failure: Error message if query fails
-            
+
             Workflow:
             1. Validate ledger ID is provided
             2. Query all transactions by ledger ID
@@ -149,17 +152,17 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Query all transactions created by a specific user
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - createdByUserId: Creator user ID (required)
-            
+
             Returns:
             - Success: List of transactions with their details
             - Failure: Error message if query fails
-            
+
             Workflow:
             1. Validate user ID is provided
             2. Query all transactions by user ID
@@ -180,18 +183,18 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Query transactions by type (income or expense) for a specific user
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - type: Transaction type (required, "1" for INCOME, "2" for EXPENSE)
             - createdByUserId: Creator user ID (required)
-            
+
             Returns:
             - Success: List of transactions matching the type
             - Failure: Error message if query fails
-            
+
             Workflow:
             1. Validate parameters
             2. Query transactions by type and user ID
@@ -212,22 +215,22 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Query transactions within a specific date range
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - startTime: Start date time (required, format: yyyy-MM-dd HH:mm:ss)
             - endTime: End date time (required, format: yyyy-MM-dd HH:mm:ss)
             - createdByUserId: Creator user ID (required)
-            
+
             Returns:
             - Success: List of transactions within the date range
             - Failure: Error message if query fails
-            
+
             Error Handling:
             - If startTime is after endTime: Return "开始时间不能晚于结束时间" error
-            
+
             Workflow:
             1. Validate and parse date time parameters
             2. Query transactions within date range
@@ -252,10 +255,10 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Update transaction information
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - id: Transaction ID (required)
             - name: New transaction name (optional)
@@ -264,15 +267,15 @@ public class TransactionMCP {
             - type: New transaction type (optional, "1" for INCOME, "2" for EXPENSE)
             - transactionDateTime: New transaction date time (optional, format: yyyy-MM-dd HH:mm:ss)
             - categoryId: New category ID (optional)
-            
+
             Returns:
             - Success: Update successful message with updated transaction info
             - Failure: Error message if update fails
-            
+
             Error Handling:
             - If amount is not positive: Return "交易金额必须大于0" error
             - If type is invalid: Return "无效的交易类型" error
-            
+
             Workflow:
             1. Validate transaction ID is provided
             2. Check if transaction exists
@@ -294,9 +297,11 @@ public class TransactionMCP {
         return String.format("交易更新成功: %s", formatTransactionInfo(transaction));
     }
 
-    /**
+    */
+/**
      * 更新交易（兼容旧接口，不更新分类）
-     */
+     *//*
+
     public String updateTransaction(Long id, String name, String description, BigDecimal amount,
                                     Integer type, String transactionDateTime) {
         return updateTransaction(id, name, description, amount, type, transactionDateTime, null);
@@ -304,21 +309,21 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Delete a transaction (soft delete - mark as deleted)
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - id: Transaction ID (required)
-            
+
             Returns:
             - Success: Deletion successful message
             - Failure: Error message if deletion fails
-            
+
             Note:
             - This is a soft delete operation, the transaction record remains in database
             - The transaction's deleteTime field will be set to current timestamp
-            
+
             Workflow:
             1. Validate transaction ID is provided
             2. Check if transaction exists and not already deleted
@@ -334,17 +339,17 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Calculate financial statistics for a ledger
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - ledgerId: Ledger ID (required)
-            
+
             Returns:
             - Success: Financial summary including total income, total expense, and balance
             - Failure: Error message if calculation fails
-            
+
             Workflow:
             1. Validate ledger ID is provided
             2. Calculate total income (sum of all INCOME transactions)
@@ -369,17 +374,17 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Calculate financial statistics for a user across all transactions
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - createdByUserId: Creator user ID (required)
-            
+
             Returns:
             - Success: Financial summary including total income, total expense, and balance
             - Failure: Error message if calculation fails
-            
+
             Workflow:
             1. Validate user ID is provided
             2. Calculate total income (sum of all INCOME transactions)
@@ -414,9 +419,11 @@ public class TransactionMCP {
                 """, totalIncome, totalExpense, balance);
     }
 
-    /**
+    */
+/**
      * 格式化交易信息
-     */
+     *//*
+
     private String formatTransactionInfo(TransactionEntity transaction) {
         return String.format("""
                         交易ID: %d
@@ -445,17 +452,17 @@ public class TransactionMCP {
 
     @McpTool(description = """
             Purpose: Query transactions by category
-            
+
             Prerequisites:
             - NONE
-            
+
             Parameters:
             - categoryId: Category ID (required)
-            
+
             Returns:
             - Success: List of transactions in the specified category
             - Failure: Error message if query fails
-            
+
             Workflow:
             1. Validate category ID is provided
             2. Query all transactions by category ID
@@ -476,3 +483,4 @@ public class TransactionMCP {
 
 
 }
+*/

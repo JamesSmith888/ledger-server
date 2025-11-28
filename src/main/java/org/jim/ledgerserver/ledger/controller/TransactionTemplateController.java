@@ -2,6 +2,7 @@ package org.jim.ledgerserver.ledger.controller;
 
 import jakarta.annotation.Resource;
 import org.jim.ledgerserver.common.JSONResult;
+import org.jim.ledgerserver.common.enums.TransactionSourceEnum;
 import org.jim.ledgerserver.common.util.UserContext;
 import org.jim.ledgerserver.ledger.entity.TransactionTemplateEntity;
 import org.jim.ledgerserver.ledger.service.TransactionService;
@@ -225,10 +226,10 @@ public class TransactionTemplateController {
                 ? LocalDateTime.parse(request.transactionDateTime(), DATE_TIME_FORMATTER)
                 : LocalDateTime.now();
 
-        // 创建交易
+        // 创建交易（使用模板名称作为交易描述）
+        String transactionDescription = (description != null && !description.isEmpty()) ? description : template.getName();
         var transaction = transactionService.create(
-                template.getName(),
-                description,
+                transactionDescription,
                 amount,
                 template.getType(),
                 transactionDateTime,
@@ -241,7 +242,6 @@ public class TransactionTemplateController {
         // 这里简化处理，实际可以复用 TransactionController 的转换方法
         TransactionGetAllResp resp = new TransactionGetAllResp(
                 transaction.getId(),
-                transaction.getName(),
                 transaction.getDescription(),
                 transaction.getAmount(),
                 org.jim.ledgerserver.common.enums.TransactionTypeEnum.getByCode(transaction.getType()),
@@ -252,7 +252,8 @@ public class TransactionTemplateController {
                 null, // createdByUserNickname - 可以后续优化
                 transaction.getCategoryId(),
                 transaction.getPaymentMethodId(),
-                0L    // attachmentCount
+                0L,   // attachmentCount
+                TransactionSourceEnum.getByCode(transaction.getSource())  // source
         );
 
         return JSONResult.success(resp);

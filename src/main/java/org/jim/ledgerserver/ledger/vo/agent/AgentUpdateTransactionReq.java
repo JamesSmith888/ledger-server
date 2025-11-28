@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
  */
 public record AgentUpdateTransactionReq(
         Long id,
-        String name,
         String description,
         BigDecimal amount,
         TransactionTypeEnum type,

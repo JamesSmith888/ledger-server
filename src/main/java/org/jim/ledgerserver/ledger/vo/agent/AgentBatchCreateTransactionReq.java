@@ -21,7 +21,6 @@ public record AgentBatchCreateTransactionReq(
      * 单条交易数据
      */
     public record TransactionItem(
-            String name,
             String description,
             BigDecimal amount,
             TransactionTypeEnum type,

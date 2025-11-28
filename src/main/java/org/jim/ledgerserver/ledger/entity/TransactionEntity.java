@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import org.jim.ledgerserver.base.BaseEntity;
+import org.jim.ledgerserver.common.enums.TransactionSourceEnum;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 
 import java.math.BigDecimal;
@@ -31,11 +32,6 @@ import java.time.LocalDateTime;
     @Index(name = "idx_transaction_payment_method", columnList = "payment_method_id")
 })
 public class TransactionEntity extends BaseEntity {
-
-    /**
-     * 交易名称
-     */
-    private String name;
 
     /**
      * 交易描述
@@ -79,5 +75,13 @@ public class TransactionEntity extends BaseEntity {
      * 支付方式ID（可选）
      */
     private Long paymentMethodId;
+
+    /**
+     * 交易来源
+     * 1 - MANUAL - 手动录入
+     * 2 - AI - AI助手创建
+     * @see TransactionSourceEnum
+     */
+    private Integer source;
 
 }

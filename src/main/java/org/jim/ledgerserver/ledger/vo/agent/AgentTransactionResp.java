@@ -1,5 +1,6 @@
 package org.jim.ledgerserver.ledger.vo.agent;
 
+import org.jim.ledgerserver.common.enums.TransactionSourceEnum;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 
 import java.math.BigDecimal;
@@ -14,7 +15,6 @@ import java.time.LocalDateTime;
 public record AgentTransactionResp(
         // === 基础信息 ===
         Long id,
-        String name,
         String description,
         BigDecimal amount,
         TransactionTypeEnum type,
@@ -39,6 +39,9 @@ public record AgentTransactionResp(
         String createdByUserNickname,
         
         // === 附件信息 ===
-        Long attachmentCount
+        Long attachmentCount,
+        
+        // === 来源信息 ===
+        TransactionSourceEnum source
 ) {
 }

@@ -330,7 +330,7 @@ public class ExportService {
         
         ExportTransactionData data = new ExportTransactionData();
         data.setId(tx.getId());
-        data.setName(tx.getName());
+        data.setName(tx.getDescription());
         data.setDescription(tx.getDescription());
         data.setAmount(tx.getAmount());
         data.setType(TransactionTypeEnum.getByCode(tx.getType()) != null 
@@ -437,7 +437,7 @@ public class ExportService {
         
         for (ExportTransactionData tx : transactions) {
             sb.append(tx.getId()).append(",");
-            sb.append(escapeCsv(tx.getName())).append(",");
+            sb.append(escapeCsv(tx.getDescription())).append(",");
             sb.append(escapeCsv(tx.getDescription())).append(",");
             sb.append(tx.getAmount()).append(",");
             sb.append(tx.getType()).append(",");

@@ -1,5 +1,6 @@
 package org.jim.ledgerserver.ledger.vo;
 
+import org.jim.ledgerserver.common.enums.TransactionSourceEnum;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 
 import java.math.BigDecimal;
@@ -7,10 +8,6 @@ import java.time.LocalDateTime;
 
 public record TransactionGetAllResp(
         Long id,
-        /**
-         * 交易名称
-         */
-        String name,
 
         /**
          * 交易描述
@@ -68,6 +65,14 @@ public record TransactionGetAllResp(
         /**
          * 附件数量
          */
-        Long attachmentCount
+        Long attachmentCount,
+
+        /**
+         * 交易来源
+         * 1 - MANUAL - 手动录入
+         * 2 - AI - AI助手创建
+         * @see TransactionSourceEnum
+         */
+        TransactionSourceEnum source
 ) {
 }

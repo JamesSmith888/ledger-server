@@ -2,6 +2,7 @@ package org.jim.ledgerserver.ledger.controller;
 
 import jakarta.annotation.Resource;
 import org.jim.ledgerserver.common.JSONResult;
+import org.jim.ledgerserver.common.enums.TransactionSourceEnum;
 import org.jim.ledgerserver.common.enums.TransactionTypeEnum;
 import org.jim.ledgerserver.common.util.UserContext;
 import org.jim.ledgerserver.ledger.entity.LedgerEntity;
@@ -66,7 +67,6 @@ public class TransactionController {
         }
 
         TransactionEntity transactionEntity = transactionService.create(
-                transaction.name(),
                 transaction.description(),
                 transaction.amount(),
                 transaction.type().getCode(),
@@ -371,7 +371,6 @@ public class TransactionController {
         
         return new TransactionGetAllResp(
                 tx.getId(),
-                tx.getName(),
                 tx.getDescription(),
                 tx.getAmount(),
                 TransactionTypeEnum.getByCode(tx.getType()),
@@ -382,7 +381,8 @@ public class TransactionController {
                 createdByUserNickname,
                 tx.getCategoryId(),
                 tx.getPaymentMethodId(),
-                attachmentCount
+                attachmentCount,
+                TransactionSourceEnum.getByCode(tx.getSource())
         );
     }
 
@@ -414,7 +414,6 @@ public class TransactionController {
         
         return new TransactionGetAllResp(
                 tx.getId(),
-                tx.getName(),
                 tx.getDescription(),
                 tx.getAmount(),
                 TransactionTypeEnum.getByCode(tx.getType()),
@@ -425,7 +424,8 @@ public class TransactionController {
                 createdByUserNickname,
                 tx.getCategoryId(),
                 tx.getPaymentMethodId(),
-                attachmentCount
+                attachmentCount,
+                TransactionSourceEnum.getByCode(tx.getSource())
         );
     }
 

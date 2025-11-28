@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
  * @author James Smith
  */
 public record TransactionReq(
-        String name,
         String description,
         BigDecimal amount,
         TransactionTypeEnum type,
