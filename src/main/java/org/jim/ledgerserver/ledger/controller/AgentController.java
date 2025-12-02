@@ -367,13 +367,10 @@ public class AgentController {
                 predicates.add(cb.lessThanOrEqualTo(root.get("amount"), request.maxAmount()));
             }
             
-            // 关键词搜索
+            // 关键词搜索（TransactionEntity 只有 description 字段，没有 name）
             if (request.keyword() != null && !request.keyword().trim().isEmpty()) {
                 String pattern = "%" + request.keyword().trim().toLowerCase() + "%";
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("name")), pattern),
-                        cb.like(cb.lower(root.get("description")), pattern)
-                ));
+                predicates.add(cb.like(cb.lower(root.get("description")), pattern));
             }
             
             return cb.and(predicates.toArray(new Predicate[0]));
