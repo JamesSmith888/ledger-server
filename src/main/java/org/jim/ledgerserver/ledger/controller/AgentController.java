@@ -9,6 +9,9 @@ import org.jim.ledgerserver.ledger.entity.LedgerEntity;
 import org.jim.ledgerserver.ledger.entity.PaymentMethodEntity;
 import org.jim.ledgerserver.ledger.entity.TransactionEntity;
 import org.jim.ledgerserver.ledger.repository.TransactionRepository;
+import org.jim.ledgerserver.ledger.repository.LedgerRepository;
+import org.jim.ledgerserver.ledger.repository.CategoryRepository;
+import org.jim.ledgerserver.ledger.repository.PaymentMethodRepository;
 import org.jim.ledgerserver.ledger.service.*;
 import org.jim.ledgerserver.ledger.vo.agent.*;
 import org.jim.ledgerserver.common.enums.TransactionSourceEnum;
@@ -25,9 +28,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -64,6 +65,15 @@ public class AgentController {
 
     @Resource
     private TransactionAttachmentService attachmentService;
+
+    @Resource
+    private LedgerRepository ledgerRepository;
+
+    @Resource
+    private CategoryRepository categoryRepository;
+
+    @Resource
+    private PaymentMethodRepository paymentMethodRepository;
 
     /**
      * 创建交易 - Agent 专用
@@ -156,10 +166,8 @@ public class AgentController {
         // 执行查询
         Page<TransactionEntity> page = transactionRepository.findAll(spec, pageable);
 
-        // 转换为响应对象并计算汇总
-        List<AgentTransactionResp> transactions = page.getContent().stream()
-                .map(this::buildAgentTransactionResp)
-                .collect(Collectors.toList());
+        // 转换为响应对象（使用批量查询优化）
+        List<AgentTransactionResp> transactions = buildAgentTransactionRespBatch(page.getContent());
 
         // 计算当前页的汇总统计
         BigDecimal totalIncome = BigDecimal.ZERO;
@@ -240,9 +248,8 @@ public class AgentController {
         
         Page<TransactionEntity> pageResult = transactionRepository.findAll(spec, pageable);
         
-        List<AgentTransactionResp> transactions = pageResult.getContent().stream()
-                .map(this::buildAgentTransactionResp)
-                .collect(Collectors.toList());
+        // 使用批量查询优化
+        List<AgentTransactionResp> transactions = buildAgentTransactionRespBatch(pageResult.getContent());
 
         // 计算汇总
         BigDecimal totalIncome = BigDecimal.ZERO;
@@ -310,9 +317,8 @@ public class AgentController {
         
         Page<TransactionEntity> page = transactionRepository.findAll(spec, pageable);
         
-        List<AgentTransactionResp> transactions = page.getContent().stream()
-                .map(this::buildAgentTransactionResp)
-                .collect(Collectors.toList());
+        // 使用批量查询优化
+        List<AgentTransactionResp> transactions = buildAgentTransactionRespBatch(page.getContent());
 
         return JSONResult.success(transactions);
     }
@@ -474,6 +480,83 @@ public class AgentController {
                 attachmentCount,
                 TransactionSourceEnum.getByCode(tx.getSource())
         );
+    }
+
+    /**
+     * 批量构建 Agent 专用的交易响应对象
+     * 使用批量查询优化性能，避免 N+1 问题
+     */
+    private List<AgentTransactionResp> buildAgentTransactionRespBatch(List<TransactionEntity> transactions) {
+        if (transactions == null || transactions.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 收集所有需要查询的 ID
+        Set<Long> ledgerIds = new HashSet<>();
+        Set<Long> categoryIds = new HashSet<>();
+        Set<Long> paymentMethodIds = new HashSet<>();
+        Set<Long> userIds = new HashSet<>();
+        Set<Long> transactionIds = new HashSet<>();
+
+        for (TransactionEntity tx : transactions) {
+            if (tx.getLedgerId() != null) ledgerIds.add(tx.getLedgerId());
+            if (tx.getCategoryId() != null) categoryIds.add(tx.getCategoryId());
+            if (tx.getPaymentMethodId() != null) paymentMethodIds.add(tx.getPaymentMethodId());
+            if (tx.getCreatedByUserId() != null) userIds.add(tx.getCreatedByUserId());
+            transactionIds.add(tx.getId());
+        }
+
+        // 批量查询关联数据
+        Map<Long, LedgerEntity> ledgerMap = ledgerIds.isEmpty() ? Collections.emptyMap() :
+                ledgerRepository.findAllById(ledgerIds).stream()
+                        .collect(Collectors.toMap(LedgerEntity::getId, e -> e));
+
+        Map<Long, CategoryEntity> categoryMap = categoryIds.isEmpty() ? Collections.emptyMap() :
+                categoryRepository.findAllById(categoryIds).stream()
+                        .collect(Collectors.toMap(CategoryEntity::getId, e -> e));
+
+        Map<Long, PaymentMethodEntity> paymentMethodMap = paymentMethodIds.isEmpty() ? Collections.emptyMap() :
+                paymentMethodRepository.findAllById(paymentMethodIds).stream()
+                        .collect(Collectors.toMap(PaymentMethodEntity::getId, e -> e));
+
+        Map<Long, UserEntity> userMap = userIds.isEmpty() ? Collections.emptyMap() :
+                userRepository.findAllById(userIds).stream()
+                        .collect(Collectors.toMap(UserEntity::getId, e -> e));
+
+        // 批量查询附件数量
+        Map<Long, Long> attachmentCountMap = attachmentService.countAttachmentsByTransactionIds(new ArrayList<>(transactionIds));
+
+        // 构建响应列表
+        List<AgentTransactionResp> result = new ArrayList<>(transactions.size());
+        for (TransactionEntity tx : transactions) {
+            LedgerEntity ledger = tx.getLedgerId() != null ? ledgerMap.get(tx.getLedgerId()) : null;
+            CategoryEntity category = tx.getCategoryId() != null ? categoryMap.get(tx.getCategoryId()) : null;
+            PaymentMethodEntity paymentMethod = tx.getPaymentMethodId() != null ? paymentMethodMap.get(tx.getPaymentMethodId()) : null;
+            UserEntity user = tx.getCreatedByUserId() != null ? userMap.get(tx.getCreatedByUserId()) : null;
+            long attachmentCount = attachmentCountMap.getOrDefault(tx.getId(), 0L);
+
+            result.add(new AgentTransactionResp(
+                    tx.getId(),
+                    tx.getDescription(),
+                    tx.getAmount(),
+                    TransactionTypeEnum.getByCode(tx.getType()),
+                    tx.getTransactionDateTime(),
+                    tx.getLedgerId(),
+                    ledger != null ? ledger.getName() : null,
+                    tx.getCategoryId(),
+                    category != null ? category.getName() : null,
+                    category != null ? category.getIcon() : null,
+                    tx.getPaymentMethodId(),
+                    paymentMethod != null ? paymentMethod.getName() : null,
+                    tx.getCreatedByUserId(),
+                    user != null ? user.getUsername() : null,
+                    user != null ? user.getNickname() : null,
+                    attachmentCount,
+                    TransactionSourceEnum.getByCode(tx.getSource())
+            ));
+        }
+
+        return result;
     }
 
     /**

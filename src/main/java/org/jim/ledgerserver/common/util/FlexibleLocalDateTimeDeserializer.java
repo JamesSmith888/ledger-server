@@ -25,6 +25,7 @@ public class FlexibleLocalDateTimeDeserializer extends JsonDeserializer<LocalDat
 
     private static final DateTimeFormatter STANDARD_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter ISO_LOCAL_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final DateTimeFormatter DATE_ONLY_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     @Override
     public LocalDateTime deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
@@ -57,11 +58,21 @@ public class FlexibleLocalDateTimeDeserializer extends JsonDeserializer<LocalDat
             }
             
             // 4. 尝试解析中文常用格式 (如 2025-11-27 07:10:30)
+            if (text.contains(" ")) {
+                return LocalDateTime.parse(text, STANDARD_FORMATTER);
+            }
+            
+            // 5. 尝试解析纯日期格式 (如 2025-12-02)，自动补充为当天 00:00:00
+            if (text.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return java.time.LocalDate.parse(text, DATE_ONLY_FORMATTER).atStartOfDay();
+            }
+            
+            // 最后尝试标准格式
             return LocalDateTime.parse(text, STANDARD_FORMATTER);
             
         } catch (DateTimeParseException e) {
             throw new IOException("无法解析日期时间: " + text + ", 支持的格式: " +
-                    "yyyy-MM-dd HH:mm:ss, yyyy-MM-ddTHH:mm:ss, ISO 8601 (带Z或时区)", e);
+                    "yyyy-MM-dd, yyyy-MM-dd HH:mm:ss, yyyy-MM-ddTHH:mm:ss, ISO 8601 (带Z或时区)", e);
         }
     }
 }
