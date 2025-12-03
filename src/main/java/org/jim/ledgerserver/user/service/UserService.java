@@ -13,6 +13,11 @@ import org.jim.ledgerserver.user.dto.RegisterResponse;
 import org.jim.ledgerserver.user.dto.UpdateProfileRequest;
 import org.jim.ledgerserver.user.entity.UserEntity;
 import org.jim.ledgerserver.user.repository.UserRepository;
+import org.jim.ledgerserver.user.repository.UserAvatarRepository;
+import org.jim.ledgerserver.user.entity.UserAvatarEntity;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
+import java.io.IOException;
 import org.jim.ledgerserver.user.event.UserRegisteredEvent;
 import org.jim.ledgerserver.ledger.service.PaymentMethodService;
 import org.springframework.context.ApplicationEventPublisher;
@@ -28,6 +33,9 @@ public class UserService {
 
     @Resource
     private UserRepository userRepository;
+
+    @Resource
+    private UserAvatarRepository userAvatarRepository;
 
     @Resource
     private PasswordEncoder passwordEncoder;
@@ -365,6 +373,66 @@ public class UserService {
         }
         
         return userRepository.save(user);
+    }
+
+    /**
+     * 上传用户头像
+     * @param userId 用户ID
+     * @param file 头像文件
+     * @return 头像URL
+     */
+    @Transactional
+    public String uploadAvatar(Long userId, MultipartFile file) {
+        // 1. 验证文件
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("文件不能为空");
+        }
+        
+        // 2. 检查文件类型
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BusinessException("只能上传图片文件");
+        }
+        
+        // 3. 检查文件大小 (例如 5MB)
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new BusinessException("图片大小不能超过 5MB");
+        }
+
+        try {
+            // 4. 删除旧头像
+            userAvatarRepository.deleteByUserId(userId);
+            
+            // 5. 保存新头像
+            UserAvatarEntity avatar = new UserAvatarEntity();
+            avatar.setUserId(userId);
+            avatar.setFileName(file.getOriginalFilename());
+            avatar.setFileType(contentType);
+            avatar.setFileSize(file.getSize());
+            avatar.setFileData(file.getBytes());
+            
+            userAvatarRepository.save(avatar);
+            
+            // 6. 更新用户头像URL
+            // 返回相对路径，前端需要拼接 base URL
+            String avatarUrl = "/user/avatar/" + userId;
+            
+            UserEntity user = findById(userId);
+            user.setAvatarUrl(avatarUrl);
+            userRepository.save(user);
+            
+            return avatarUrl;
+        } catch (IOException e) {
+            throw new BusinessException("头像上传失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取用户头像数据
+     */
+    public UserAvatarEntity getAvatar(Long userId) {
+        return userAvatarRepository.findByUserId(userId)
+                .orElseThrow(() -> new BusinessException("头像不存在"));
     }
 
 }

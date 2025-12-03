@@ -6,8 +6,14 @@ import org.jim.ledgerserver.common.JSONResult;
 import org.jim.ledgerserver.common.util.UserContext;
 import org.jim.ledgerserver.user.dto.*;
 import org.jim.ledgerserver.user.entity.UserEntity;
+import org.jim.ledgerserver.user.entity.UserAvatarEntity;
 import org.jim.ledgerserver.user.service.UserService;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 
 /**
  * 用户控制器
@@ -118,6 +124,32 @@ public class UserController {
         Long currentUserId = UserContext.getCurrentUserId();
         Long defaultLedgerId = userService.getDefaultLedgerId(currentUserId);
         return JSONResult.success(defaultLedgerId);
+    }
+
+    /**
+     * 上传用户头像
+     */
+    @PostMapping("/avatar")
+    public JSONResult<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        String avatarUrl = userService.uploadAvatar(currentUserId, file);
+        return JSONResult.success(avatarUrl);
+    }
+
+    /**
+     * 获取用户头像
+     */
+    @GetMapping("/avatar/{userId}")
+    public ResponseEntity<byte[]> getAvatar(@PathVariable Long userId) {
+        UserAvatarEntity avatar = userService.getAvatar(userId);
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(avatar.getFileType()));
+        headers.setContentDispositionFormData("attachment", avatar.getFileName());
+        headers.setContentLength(avatar.getFileSize());
+        headers.setCacheControl("max-age=86400"); // 缓存1天
+
+        return new ResponseEntity<>(avatar.getFileData(), headers, HttpStatus.OK);
     }
 
     /**
