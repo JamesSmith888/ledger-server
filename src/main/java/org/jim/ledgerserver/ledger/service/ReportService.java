@@ -89,10 +89,18 @@ public class ReportService {
                     Long id = entry.getKey();
                     List<TransactionEntity> items = entry.getValue();
 
-                    // 获取分类信息
-                    var category = categoryService.findById(id);
-                    String name = category.getName();
-                    String icon = category.getIcon();
+                    // 获取分类信息（容错处理）
+                    String name;
+                    String icon = "📁"; // 默认分类图标
+                    try {
+                        var category = categoryService.findById(id);
+                        name = category.getName();
+                        if (category.getIcon() != null) {
+                            icon = category.getIcon();
+                        }
+                    } catch (Exception e) {
+                        name = "已删除分类";
+                    }
 
                     return buildStatisticsItem(String.valueOf(id), name, icon, items, totalAmount);
                 })
