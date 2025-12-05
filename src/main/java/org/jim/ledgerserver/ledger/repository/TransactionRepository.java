@@ -69,10 +69,19 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             LocalDateTime startTime, LocalDateTime endTime, Long createdByUserId);
 
     /**
-     * 根据分类ID查找交易
+     * 根据分类ID查找未删除的交易
      * @param categoryId 分类ID
      * @return 交易列表
      */
+    List<TransactionEntity> findByCategoryIdAndDeleteTimeIsNull(Long categoryId);
+
+    /**
+     * 根据分类ID查找交易（包含已删除，建议使用 findByCategoryIdAndDeleteTimeIsNull）
+     * @param categoryId 分类ID
+     * @return 交易列表
+     * @deprecated 使用 findByCategoryIdAndDeleteTimeIsNull 代替
+     */
+    @Deprecated
     List<TransactionEntity> findByCategoryId(Long categoryId);
 
     /**

@@ -102,4 +102,23 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, Long> 
      */
     @Query("SELECT c FROM category c WHERE c.type = :type AND (c.isSystem = true OR c.createdByUserId = :userId) AND c.isFrequent = true AND c.deleteTime IS NULL ORDER BY c.sortOrder ASC, c.createTime ASC")
     List<CategoryEntity> findFrequentCategoriesByTypeAndUserId(@Param("type") Integer type, @Param("userId") Long userId);
+
+    /**
+     * 按名称模糊匹配分类（用户可见的分类）
+     * @param nameLike 名称模糊匹配（已包含 % 通配符）
+     * @param userId 用户ID
+     * @return 匹配的分类列表
+     */
+    @Query("SELECT c FROM category c WHERE LOWER(c.name) LIKE LOWER(:nameLike) AND (c.isSystem = true OR c.createdByUserId = :userId) AND c.deleteTime IS NULL")
+    List<CategoryEntity> findByNameLikeAndUserId(@Param("nameLike") String nameLike, @Param("userId") Long userId);
+
+    /**
+     * 按名称模糊匹配分类（指定类型）
+     * @param nameLike 名称模糊匹配（已包含 % 通配符）
+     * @param type 分类类型
+     * @param userId 用户ID
+     * @return 匹配的分类列表
+     */
+    @Query("SELECT c FROM category c WHERE LOWER(c.name) LIKE LOWER(:nameLike) AND c.type = :type AND (c.isSystem = true OR c.createdByUserId = :userId) AND c.deleteTime IS NULL")
+    List<CategoryEntity> findByNameLikeAndTypeAndUserId(@Param("nameLike") String nameLike, @Param("type") Integer type, @Param("userId") Long userId);
 }

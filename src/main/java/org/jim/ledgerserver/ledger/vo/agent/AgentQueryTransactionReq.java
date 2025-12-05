@@ -18,8 +18,11 @@ public record AgentQueryTransactionReq(
         // 交易类型：INCOME/EXPENSE（可选）
         String type,
         
-        // 分类ID（可选）
+        // 分类ID（可选，精确匹配）
         Long categoryId,
+        
+        // 分类名称（可选，模糊匹配，当 categoryId 为空时使用）
+        String categoryName,
         
         // 时间范围（可选）
         @JsonDeserialize(using = FlexibleLocalDateTimeDeserializer.class)

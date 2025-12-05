@@ -327,6 +327,25 @@ public class AgentController {
      * 构建查询条件
      */
     private Specification<TransactionEntity> buildQuerySpecification(AgentQueryTransactionReq request, Long userId) {
+        // 预先解析 categoryName 模糊匹配（如果 categoryId 为空且 categoryName 不为空）
+        List<Long> matchedCategoryIds = null;
+        if (request.categoryId() == null && request.categoryName() != null && !request.categoryName().trim().isEmpty()) {
+            String nameLike = "%" + request.categoryName().trim() + "%";
+            List<CategoryEntity> matchedCategories;
+            if (request.type() != null && !request.type().isEmpty()) {
+                // 按类型过滤
+                Integer typeCode = TransactionTypeEnum.valueOf(request.type()).getCode();
+                matchedCategories = categoryRepository.findByNameLikeAndTypeAndUserId(nameLike, typeCode, userId);
+            } else {
+                matchedCategories = categoryRepository.findByNameLikeAndUserId(nameLike, userId);
+            }
+            matchedCategoryIds = matchedCategories.stream()
+                    .map(CategoryEntity::getId)
+                    .toList();
+        }
+        
+        final List<Long> finalMatchedCategoryIds = matchedCategoryIds;
+        
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             
@@ -346,9 +365,11 @@ public class AgentController {
                 predicates.add(cb.equal(root.get("type"), typeEnum.getCode()));
             }
             
-            // 分类ID
+            // 分类筛选：优先使用 categoryId，其次使用 categoryName 模糊匹配结果
             if (request.categoryId() != null) {
                 predicates.add(cb.equal(root.get("categoryId"), request.categoryId()));
+            } else if (finalMatchedCategoryIds != null && !finalMatchedCategoryIds.isEmpty()) {
+                predicates.add(root.get("categoryId").in(finalMatchedCategoryIds));
             }
             
             // 时间范围
@@ -356,7 +377,12 @@ public class AgentController {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("transactionDateTime"), request.startTime()));
             }
             if (request.endTime() != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("transactionDateTime"), request.endTime()));
+                // 修复：如果 endTime 是当天 00:00:00（纯日期解析结果），自动调整为当天 23:59:59.999
+                LocalDateTime endTime = request.endTime();
+                if (endTime.getHour() == 0 && endTime.getMinute() == 0 && endTime.getSecond() == 0 && endTime.getNano() == 0) {
+                    endTime = endTime.toLocalDate().atTime(java.time.LocalTime.MAX);
+                }
+                predicates.add(cb.lessThanOrEqualTo(root.get("transactionDateTime"), endTime));
             }
             
             // 金额范围
@@ -367,7 +393,7 @@ public class AgentController {
                 predicates.add(cb.lessThanOrEqualTo(root.get("amount"), request.maxAmount()));
             }
             
-            // 关键词搜索（TransactionEntity 只有 description 字段，没有 name）
+            // 关键词搜索（匹配描述）
             if (request.keyword() != null && !request.keyword().trim().isEmpty()) {
                 String pattern = "%" + request.keyword().trim().toLowerCase() + "%";
                 predicates.add(cb.like(cb.lower(root.get("description")), pattern));

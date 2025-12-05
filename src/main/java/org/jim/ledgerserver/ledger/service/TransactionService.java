@@ -312,7 +312,7 @@ public class TransactionService {
     }
 
     /**
-     * 根据分类ID查询交易
+     * 根据分类ID查询未删除的交易
      * @param categoryId 分类ID
      * @return 交易列表
      */
@@ -320,7 +320,7 @@ public class TransactionService {
         if (categoryId == null) {
             throw new BusinessException("分类ID不能为空");
         }
-        return transactionRepository.findByCategoryId(categoryId);
+        return transactionRepository.findByCategoryIdAndDeleteTimeIsNull(categoryId);
     }
 
     /**
