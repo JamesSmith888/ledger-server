@@ -124,4 +124,10 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     List<Object[]> findTopCategoriesByUsageInLastWeek(@Param("userId") Long userId, 
                                                        @Param("type") Integer type, 
                                                        @Param("startTime") LocalDateTime startTime);
+
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM transaction t WHERE t.ledgerId = :ledgerId AND t.type = 2 AND t.transactionDateTime BETWEEN :startTime AND :endTime AND t.deleteTime IS NULL")
+    BigDecimal sumExpenseByLedgerIdAndDateRange(@Param("ledgerId") Long ledgerId, @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
+
+    @Query("SELECT t.categoryId, COALESCE(SUM(t.amount), 0) FROM transaction t WHERE t.ledgerId = :ledgerId AND t.type = 2 AND t.transactionDateTime BETWEEN :startTime AND :endTime AND t.deleteTime IS NULL GROUP BY t.categoryId")
+    List<Object[]> sumExpenseByCategoryAndDateRange(@Param("ledgerId") Long ledgerId, @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
 }

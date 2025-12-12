@@ -769,6 +769,122 @@ public class AgentController {
     }
 
     /**
+     * 获取分类汇总明细 - Agent 专用
+     * 返回指定时间范围内的完整分类汇总（不分页）
+     * 性能优化：批量查询关联数据，避免 N+1 问题
+     */
+    @GetMapping("/category-summary")
+    public JSONResult<AgentCategorySummaryResp> getCategorySummary(
+            @RequestParam(required = false) Long ledgerId,
+            @RequestParam String startTime,
+            @RequestParam String endTime,
+            @RequestParam(required = false) String type) {
+        
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        if (ledgerId != null && !canViewLedger(ledgerId, currentUserId)) {
+            return JSONResult.fail("无权限查看该账本");
+        }
+
+        try {
+            LocalDateTime start = parseDateTime(startTime);
+            LocalDateTime end = parseDateTimeAsEnd(endTime);
+
+            // 查询所有交易（不分页）
+            List<TransactionEntity> transactions = queryTransactionsForAnalysis(
+                    ledgerId, currentUserId, start, end, type, null
+            );
+
+            if (transactions.isEmpty()) {
+                return JSONResult.success(new AgentCategorySummaryResp(
+                        BigDecimal.ZERO, 0L, List.of()
+                ));
+            }
+
+            // 收集所有需要的分类ID
+            Set<Long> categoryIds = new HashSet<>();
+            for (TransactionEntity tx : transactions) {
+                if (tx.getCategoryId() != null) {
+                    categoryIds.add(tx.getCategoryId());
+                }
+            }
+
+            // 批量查询分类信息（避免 N+1 问题）
+            Map<Long, CategoryEntity> categoryMap = new HashMap<>();
+            if (!categoryIds.isEmpty()) {
+                categoryRepository.findAllById(categoryIds).forEach(cat -> 
+                    categoryMap.put(cat.getId(), cat)
+                );
+            }
+
+            // 按分类汇总
+            BigDecimal totalAmount = BigDecimal.ZERO;
+            Map<Long, AgentCategorySummaryResp.CategoryItem> summaryMap = new HashMap<>();
+
+            for (TransactionEntity tx : transactions) {
+                if (tx.getCategoryId() == null) continue;
+                
+                totalAmount = totalAmount.add(tx.getAmount());
+                Long categoryId = tx.getCategoryId();
+                
+                summaryMap.compute(categoryId, (id, item) -> {
+                    if (item == null) {
+                        CategoryEntity category = categoryMap.get(id);
+                        String categoryName = category != null ? category.getName() : "未知分类";
+                        String categoryIcon = category != null ? category.getIcon() : "📦";
+                        String categoryColor = category != null ? category.getColor() : "#999999";
+                        
+                        return new AgentCategorySummaryResp.CategoryItem(
+                                id, categoryName, categoryIcon, categoryColor,
+                                tx.getAmount(), 1L
+                        );
+                    } else {
+                        return new AgentCategorySummaryResp.CategoryItem(
+                                item.categoryId(), item.categoryName(), 
+                                item.icon(), item.color(),
+                                item.amount().add(tx.getAmount()), 
+                                item.count() + 1
+                        );
+                    }
+                });
+            }
+
+            // 转换为列表并排序（按金额降序）
+            List<AgentCategorySummaryResp.CategoryItem> categoryList = new ArrayList<>(summaryMap.values());
+            categoryList.sort((a, b) -> b.amount().compareTo(a.amount()));
+
+            // 计算百分比
+            BigDecimal finalTotal = totalAmount;
+            List<AgentCategorySummaryResp.CategoryItem> categoryListWithPercentage = categoryList.stream()
+                    .map(item -> {
+                        double percentage = finalTotal.compareTo(BigDecimal.ZERO) > 0
+                                ? item.amount().divide(finalTotal, 4, RoundingMode.HALF_UP)
+                                        .multiply(BigDecimal.valueOf(100)).doubleValue()
+                                : 0.0;
+                        return new AgentCategorySummaryResp.CategoryItem(
+                                item.categoryId(), item.categoryName(), 
+                                item.icon(), item.color(),
+                                item.amount(), item.count(), percentage
+                        );
+                    })
+                    .toList();
+
+            AgentCategorySummaryResp response = new AgentCategorySummaryResp(
+                    totalAmount,
+                    (long) transactions.size(),
+                    categoryListWithPercentage
+            );
+
+            return JSONResult.success(response);
+        } catch (Exception e) {
+            return JSONResult.fail("获取分类汇总失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 获取统计报表 - Agent 专用
      * 支持按分类统计，返回收支汇总和各分类占比
      */
