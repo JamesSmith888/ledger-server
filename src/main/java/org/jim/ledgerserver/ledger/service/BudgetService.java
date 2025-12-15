@@ -78,7 +78,7 @@ public class BudgetService {
     /**
      * 获取预算概览
      */
-    public BudgetOverviewResp getBudgetOverview(Long ledgerId) {
+    public BudgetOverviewResp getBudgetOverview(Long ledgerId, Integer year, Integer month) {
         // 1. 获取预算设置
         Optional<BudgetSettingEntity> settingOpt = budgetSettingRepository.findByLedgerId(ledgerId);
         if (settingOpt.isEmpty()) {
@@ -86,10 +86,16 @@ public class BudgetService {
         }
         BudgetSettingEntity setting = settingOpt.get();
 
-        // 2. 获取本月时间范围
-        LocalDate now = LocalDate.now();
-        LocalDateTime startTime = now.with(TemporalAdjusters.firstDayOfMonth()).atStartOfDay();
-        LocalDateTime endTime = now.with(TemporalAdjusters.lastDayOfMonth()).atTime(LocalTime.MAX);
+        // 2. 获取时间范围
+        LocalDate date;
+        if (year != null && month != null) {
+            date = LocalDate.of(year, month, 1);
+        } else {
+            date = LocalDate.now();
+        }
+        
+        LocalDateTime startTime = date.with(TemporalAdjusters.firstDayOfMonth()).atStartOfDay();
+        LocalDateTime endTime = date.with(TemporalAdjusters.lastDayOfMonth()).atTime(LocalTime.MAX);
 
         // 3. 获取本月总支出
         BigDecimal totalExpense = transactionRepository.sumExpenseByLedgerIdAndDateRange(ledgerId, startTime, endTime);

@@ -38,13 +38,16 @@ public class BudgetController {
      * 获取预算概览
      */
     @GetMapping("/overview")
-    public JSONResult<BudgetOverviewResp> getBudgetOverview(@RequestParam Long ledgerId) {
+    public JSONResult<BudgetOverviewResp> getBudgetOverview(
+            @RequestParam Long ledgerId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
         Long currentUserId = UserContext.getCurrentUserId();
         if (currentUserId == null) {
             return JSONResult.fail("用户未登录");
         }
         
-        BudgetOverviewResp resp = budgetService.getBudgetOverview(ledgerId);
+        BudgetOverviewResp resp = budgetService.getBudgetOverview(ledgerId, year, month);
         return JSONResult.success(resp);
     }
 }
