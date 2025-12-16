@@ -248,13 +248,20 @@ public class ReportService {
         BigDecimal netBalance = totalIncome.subtract(totalExpense);
         Long totalCount = dataPoints.stream().mapToLong(TrendDataPoint::count).sum();
 
-        // 计算平均值（避免除以0）
-        int nonZeroPoints = (int) dataPoints.stream().filter(dp -> dp.count() > 0).count();
-        BigDecimal avgIncome = nonZeroPoints > 0
-                ? totalIncome.divide(BigDecimal.valueOf(nonZeroPoints), 2, RoundingMode.HALF_UP)
+        // 计算平均值（分母为截止到当前时间的时间点数量，排除未来时间）
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = getDateFormatter(request.groupBy());
+        String nowStr = now.format(formatter);
+
+        long validPointsCount = dataPoints.stream()
+                .filter(dp -> dp.date().compareTo(nowStr) <= 0)
+                .count();
+
+        BigDecimal avgIncome = validPointsCount > 0
+                ? totalIncome.divide(BigDecimal.valueOf(validPointsCount), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
-        BigDecimal avgExpense = nonZeroPoints > 0
-                ? totalExpense.divide(BigDecimal.valueOf(nonZeroPoints), 2, RoundingMode.HALF_UP)
+        BigDecimal avgExpense = validPointsCount > 0
+                ? totalExpense.divide(BigDecimal.valueOf(validPointsCount), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
         TrendStatisticsResp.Summary summary = new TrendStatisticsResp.Summary(

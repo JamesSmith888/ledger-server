@@ -84,4 +84,11 @@ public class TransactionEntity extends BaseEntity {
      */
     private Integer source;
 
+    /**
+     * 父交易ID（用于关联聚合交易）
+     * 如果该交易是追加到其他交易上的，则此字段指向父交易的ID
+     * null 表示这是一个独立交易或父交易
+     */
+    private Long parentId;
+
 }

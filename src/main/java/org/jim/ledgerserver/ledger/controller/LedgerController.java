@@ -66,8 +66,16 @@ public class LedgerController {
     public JSONResult<List<LedgerResponse>> getMyLedgers() {
         Long currentUserId = UserContext.getCurrentUserId();
         List<LedgerEntity> ledgers = ledgerService.findAccessibleLedgersByUserId(currentUserId);
+        
+        // 批量查询成员数量
+        List<Long> sharedLedgerIds = ledgers.stream()
+                .filter(LedgerEntity::isShared)
+                .map(LedgerEntity::getId)
+                .toList();
+        java.util.Map<Long, Long> memberCountMap = ledgerMemberService.countMembersByLedgerIds(sharedLedgerIds);
+        
         List<LedgerResponse> responses = ledgers.stream()
-                .map(this::convertToResponse)
+                .map(ledger -> convertToResponse(ledger, memberCountMap))
                 .collect(Collectors.toList());
         return JSONResult.success(responses);
     }
@@ -80,7 +88,15 @@ public class LedgerController {
             @PageableDefault(size = 10) Pageable pageable) {
         Long currentUserId = UserContext.getCurrentUserId();
         Page<LedgerEntity> ledgers = ledgerService.findAccessibleLedgersByUserId(currentUserId, pageable);
-        Page<LedgerResponse> responses = ledgers.map(this::convertToResponse);
+        
+        // 批量查询成员数量
+        List<Long> sharedLedgerIds = ledgers.getContent().stream()
+                .filter(LedgerEntity::isShared)
+                .map(LedgerEntity::getId)
+                .toList();
+        java.util.Map<Long, Long> memberCountMap = ledgerMemberService.countMembersByLedgerIds(sharedLedgerIds);
+        
+        Page<LedgerResponse> responses = ledgers.map(ledger -> convertToResponse(ledger, memberCountMap));
         return JSONResult.success(responses);
     }
 
@@ -207,6 +223,28 @@ public class LedgerController {
         // 如果是共享账本，添加成员数量信息
         if (ledger.isShared()) {
             long memberCount = ledgerMemberService.countMembers(ledger.getId());
+            response.setMemberCount((int) memberCount);
+        }
+        
+        return response;
+    }
+
+    private LedgerResponse convertToResponse(LedgerEntity ledger, java.util.Map<Long, Long> memberCountMap) {
+        LedgerResponse response = new LedgerResponse();
+        response.setId(ledger.getId());
+        response.setName(ledger.getName());
+        response.setDescription(ledger.getDescription());
+        response.setOwnerUserId(ledger.getOwnerUserId());
+        response.setType(ledger.getType());
+        response.setTypeName(LedgerTypeEnum.getTypeDescription(ledger.getType()));
+        response.setMaxMembers(ledger.getMaxMembers());
+        response.setIsPublic(ledger.getIsPublic());
+        response.setCreateTime(ledger.getCreateTime());
+        response.setUpdateTime(ledger.getUpdateTime());
+        
+        // 如果是共享账本，添加成员数量信息
+        if (ledger.isShared()) {
+            long memberCount = memberCountMap.getOrDefault(ledger.getId(), 0L);
             response.setMemberCount((int) memberCount);
         }
         

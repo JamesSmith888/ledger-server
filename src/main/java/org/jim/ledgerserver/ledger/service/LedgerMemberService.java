@@ -232,6 +232,23 @@ public class LedgerMemberService {
     }
 
     /**
+     * 批量统计账本成员数量
+     */
+    public java.util.Map<Long, Long> countMembersByLedgerIds(List<Long> ledgerIds) {
+        if (ledgerIds == null || ledgerIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+        List<Object[]> results = ledgerMemberRepository.countByLedgerIds(ledgerIds);
+        java.util.Map<Long, Long> countMap = new java.util.HashMap<>();
+        for (Object[] result : results) {
+            Long ledgerId = (Long) result[0];
+            Long count = (Long) result[1];
+            countMap.put(ledgerId, count);
+        }
+        return countMap;
+    }
+
+    /**
      * 保存成员实体（内部方法）
      * @param member 成员实体
      * @return 保存后的成员实体

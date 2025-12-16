@@ -26,6 +26,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -147,9 +149,12 @@ public class TransactionController {
                 .toList();
         java.util.Map<Long, Long> attachmentCountMap = attachmentService.countAttachmentsByTransactionIds(transactionIds);
 
+        // 批量查询子交易统计信息（聚合金额和子交易数量）
+        java.util.Map<Long, Object[]> childStatsMap = transactionService.getChildStatsByParentIds(transactionIds);
+
         // 转换为响应对象（使用批量查询的数据）
         List<TransactionGetAllResp> content = transactions.stream()
-                .map(tx -> toTransactionResp(tx, userMap, attachmentCountMap))
+                .map(tx -> toTransactionResp(tx, userMap, attachmentCountMap, childStatsMap))
                 .toList();
 
         TransactionPageResp response = new TransactionPageResp(
@@ -395,7 +400,8 @@ public class TransactionController {
     private TransactionGetAllResp toTransactionResp(
             TransactionEntity tx,
             java.util.Map<Long, UserEntity> userMap,
-            java.util.Map<Long, Long> attachmentCountMap) {
+            java.util.Map<Long, Long> attachmentCountMap,
+            java.util.Map<Long, Object[]> childStatsMap) {
         
         String createdByUserName = null;
         String createdByUserNickname = null;
@@ -412,6 +418,25 @@ public class TransactionController {
         // 从批量查询结果中获取附件数量
         long attachmentCount = attachmentCountMap.getOrDefault(tx.getId(), 0L);
         
+        // 获取子交易统计信息
+        BigDecimal aggregatedAmount = tx.getAmount();
+        long childCount = 0;
+        
+        if (childStatsMap != null && childStatsMap.containsKey(tx.getId())) {
+            Object[] stats = childStatsMap.get(tx.getId());
+            if (stats != null) {
+                BigDecimal childTotal = (BigDecimal) stats[0];
+                Long count = (Long) stats[1];
+                
+                if (childTotal != null) {
+                    aggregatedAmount = aggregatedAmount.add(childTotal);
+                }
+                if (count != null) {
+                    childCount = count;
+                }
+            }
+        }
+        
         return new TransactionGetAllResp(
                 tx.getId(),
                 tx.getDescription(),
@@ -425,8 +450,20 @@ public class TransactionController {
                 tx.getCategoryId(),
                 tx.getPaymentMethodId(),
                 attachmentCount,
-                TransactionSourceEnum.getByCode(tx.getSource())
+                TransactionSourceEnum.getByCode(tx.getSource()),
+                aggregatedAmount,
+                childCount
         );
+    }
+
+    /**
+     * 将 TransactionEntity 转换为 TransactionGetAllResp（旧版本重载，兼容性保留）
+     */
+    private TransactionGetAllResp toTransactionResp(
+            TransactionEntity tx,
+            java.util.Map<Long, UserEntity> userMap,
+            java.util.Map<Long, Long> attachmentCountMap) {
+        return toTransactionResp(tx, userMap, attachmentCountMap, null);
     }
 
     /**
@@ -586,6 +623,159 @@ public class TransactionController {
 
         attachmentService.deleteAttachment(attachmentId);
         return JSONResult.success();
+    }
+
+    /**
+     * 获取Top N交易（高性能接口，不查总数）
+     */
+    @PostMapping("/top")
+    public JSONResult<List<TransactionGetAllResp>> getTopTransactions(@RequestBody TransactionQueryReq request) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        List<TransactionEntity> transactions = transactionService.findTopTransactions(
+                request.ledgerId(),
+                request.type(),
+                request.startTime(),
+                request.endTime(),
+                currentUserId,
+                request.size() != null ? request.size() : 3
+        );
+
+        // 批量获取用户信息和附件数量
+        List<Long> userIds = transactions.stream()
+                .map(TransactionEntity::getCreatedByUserId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        
+        java.util.Map<Long, UserEntity> userMap = new java.util.HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<UserEntity> users = userRepository.findAllById(userIds);
+            users.forEach(user -> userMap.put(user.getId(), user));
+        }
+        
+        List<Long> transactionIds = transactions.stream()
+                .map(TransactionEntity::getId)
+                .toList();
+        java.util.Map<Long, Long> attachmentCountMap = attachmentService.countAttachmentsByTransactionIds(transactionIds);
+
+        List<TransactionGetAllResp> respList = transactions.stream()
+                .map(tx -> toTransactionResp(tx, userMap, attachmentCountMap))
+                .toList();
+
+        return JSONResult.success(respList);
+    }
+
+    // ==================== 聚合交易相关接口 ====================
+
+    /**
+     * 追加交易（创建子交易）
+     */
+    @PostMapping("/{transactionId}/append")
+    public JSONResult<Long> appendTransaction(
+            @PathVariable Long transactionId,
+            @RequestBody TransactionAppendReq request
+    ) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        TransactionEntity childTransaction = transactionService.appendTransaction(
+                transactionId,
+                request.amount(),
+                request.description(),
+                request.transactionDateTime()
+        );
+
+        return JSONResult.success(childTransaction.getId());
+    }
+
+    /**
+     * 获取聚合交易详情（包含父交易和所有子交易）
+     */
+    @GetMapping("/{transactionId}/aggregated")
+    public JSONResult<AggregatedTransactionResp> getAggregatedTransaction(@PathVariable Long transactionId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            return JSONResult.fail("用户未登录");
+        }
+
+        // 查询父交易
+        TransactionEntity parent = transactionService.findById(transactionId);
+        
+        // 验证权限
+        if (!currentUserId.equals(parent.getCreatedByUserId()) &&
+            !hasTransactionEditPermission(parent.getLedgerId(), currentUserId)) {
+            return JSONResult.fail("无权查看该交易");
+        }
+
+        // 查询子交易
+        List<TransactionEntity> children = transactionService.findChildTransactions(transactionId);
+        
+        // 计算聚合金额（直接在内存中计算，避免重复查询）
+        BigDecimal aggregatedAmount = parent.getAmount();
+        LocalDateTime latestDateTime = parent.getTransactionDateTime();
+        
+        for (TransactionEntity child : children) {
+            aggregatedAmount = aggregatedAmount.add(child.getAmount());
+            if (child.getTransactionDateTime().isAfter(latestDateTime)) {
+                latestDateTime = child.getTransactionDateTime();
+            }
+        }
+        
+        // 获取创建人信息
+        String createdByUserName = null;
+        String createdByUserNickname = null;
+        if (parent.getCreatedByUserId() != null) {
+            userRepository.findById(parent.getCreatedByUserId()).ifPresent(user -> {
+                // 使用临时变量，因为lambda中不能直接赋值给外部变量
+            });
+            UserEntity user = userRepository.findById(parent.getCreatedByUserId()).orElse(null);
+            if (user != null) {
+                createdByUserName = user.getUsername();
+                createdByUserNickname = user.getNickname();
+            }
+        }
+        
+        // 获取附件数量
+        long attachmentCount = attachmentService.countAttachments(transactionId);
+        
+        // 构建子交易响应列表
+        List<AggregatedTransactionResp.ChildTransactionResp> childRespList = children.stream()
+                .map(child -> new AggregatedTransactionResp.ChildTransactionResp(
+                        child.getId(),
+                        child.getAmount(),
+                        child.getDescription(),
+                        child.getTransactionDateTime(),
+                        child.getCreateTime()
+                ))
+                .toList();
+        
+        // 构建响应
+        AggregatedTransactionResp response = new AggregatedTransactionResp(
+                parent.getId(),
+                parent.getDescription(),
+                parent.getAmount(),
+                aggregatedAmount,
+                TransactionTypeEnum.getByCode(parent.getType()),
+                parent.getTransactionDateTime(),
+                latestDateTime,
+                parent.getLedgerId(),
+                parent.getCreatedByUserId(),
+                createdByUserName,
+                createdByUserNickname,
+                parent.getCategoryId(),
+                parent.getPaymentMethodId(),
+                attachmentCount,
+                TransactionSourceEnum.getByCode(parent.getSource()),
+                childRespList
+        );
+
+        return JSONResult.success(response);
     }
 
 }

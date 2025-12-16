@@ -51,6 +51,17 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
     Page<TransactionEntity> findByCreatedByUserId(Long createdByUserId, Pageable pageable);
 
     /**
+     * 批量查询父交易的子交易统计信息
+     * @param parentIds 父交易ID列表
+     * @return 统计结果列表 [parentId, totalAmount, count]
+     */
+    @Query("SELECT t.parentId, SUM(t.amount), COUNT(t) FROM transaction t " +
+           "WHERE t.parentId IN :parentIds AND t.deleteTime IS NULL " +
+           "GROUP BY t.parentId")
+    List<Object[]> countAndSumByParentIds(@Param("parentIds") List<Long> parentIds);
+
+
+    /**
      * 根据交易类型查找交易
      * @param type 交易类型
      * @param createdByUserId 创建用户ID

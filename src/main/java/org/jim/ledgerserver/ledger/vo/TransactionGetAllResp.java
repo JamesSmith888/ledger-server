@@ -73,6 +73,37 @@ public record TransactionGetAllResp(
          * 2 - AI - AI助手创建
          * @see TransactionSourceEnum
          */
-        TransactionSourceEnum source
+        TransactionSourceEnum source,
+
+        /**
+         * 聚合总金额（父交易+所有子交易）
+         * 如果没有子交易，则等于 amount
+         */
+        BigDecimal aggregatedAmount,
+
+        /**
+         * 子交易数量
+         */
+        Long childCount
 ) {
+    // 兼容旧构造函数
+    public TransactionGetAllResp(
+            Long id,
+            String description,
+            BigDecimal amount,
+            TransactionTypeEnum type,
+            LocalDateTime transactionDateTime,
+            Long ledgerId,
+            Long createdByUserId,
+            String createdByUserName,
+            String createdByUserNickname,
+            Long categoryId,
+            Long paymentMethodId,
+            Long attachmentCount,
+            TransactionSourceEnum source
+    ) {
+        this(id, description, amount, type, transactionDateTime, ledgerId, createdByUserId, 
+             createdByUserName, createdByUserNickname, categoryId, paymentMethodId, 
+             attachmentCount, source, amount, 0L);
+    }
 }

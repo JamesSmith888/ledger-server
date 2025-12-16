@@ -78,12 +78,19 @@ public interface LedgerMemberRepository extends JpaRepository<LedgerMemberEntity
     @Query("SELECT COUNT(lm) FROM ledger_member lm WHERE lm.ledgerId = :ledgerId AND lm.deleteTime IS NULL")
     long countByLedgerId(@Param("ledgerId") Long ledgerId);
 
+    @Query("SELECT lm.ledgerId, COUNT(lm) FROM ledger_member lm WHERE lm.ledgerId IN :ledgerIds AND lm.deleteTime IS NULL GROUP BY lm.ledgerId")
+    List<Object[]> countByLedgerIds(@Param("ledgerIds") List<Long> ledgerIds);
+
     /**
      * 统计账本活跃成员数量
      */
     @Query("SELECT COUNT(lm) FROM ledger_member lm WHERE lm.ledgerId = :ledgerId AND lm.status = 1 AND lm.deleteTime IS NULL")
     long countActiveMembersByLedgerId(@Param("ledgerId") Long ledgerId);
-
+    /**
+     * 批量统计账本的有效成员数量
+     */
+    @Query("SELECT lm.ledgerId, COUNT(lm) FROM ledger_member lm WHERE lm.ledgerId IN :ledgerIds AND lm.status = 1 AND lm.deleteTime IS NULL GROUP BY lm.ledgerId")
+    List<Object[]> countActiveMembersByLedgerIds(@Param("ledgerIds") List<Long> ledgerIds);
     /**
      * 统计用户参与的账本数量
      */

@@ -11,7 +11,9 @@ import org.jim.ledgerserver.ledger.entity.LedgerEntity;
 import org.jim.ledgerserver.ledger.entity.TransactionEntity;
 import org.jim.ledgerserver.ledger.repository.TransactionRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -191,6 +193,10 @@ public class TransactionService {
                 Predicate descPredicate = cb.like(cb.lower(root.get("description")), pattern);
                 predicates.add(descPredicate);
             }
+
+            // 默认只查询父交易（parentId 为空）
+            // 如果需要查询所有交易（包括子交易），可以在参数中增加一个开关，目前默认逻辑是聚合展示
+            predicates.add(cb.isNull(root.get("parentId")));
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -751,5 +757,177 @@ public class TransactionService {
                 balance,
                 totalCount
         );
+    }
+
+    /**
+     * 查询Top N交易（不查询总数，性能优化）
+     * @param ledgerId 账本ID（可选）
+     * @param type 交易类型（可选）
+     * @param startTime 开始时间（可选）
+     * @param endTime 结束时间（可选）
+     * @param createdByUserId 创建用户ID
+     * @param limit 限制数量
+     * @return 交易列表
+     */
+    public List<TransactionEntity> findTopTransactions(
+            Long ledgerId,
+            Integer type,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            Long createdByUserId,
+            int limit) {
+
+        if (createdByUserId == null) {
+            throw new BusinessException("创建用户ID不能为空");
+        }
+
+        // 构建动态查询条件
+        Specification<TransactionEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 未删除的记录
+            predicates.add(cb.isNull(root.get("deleteTime")));
+
+            // 账本ID筛选
+            if (ledgerId != null) {
+                predicates.add(cb.equal(root.get("ledgerId"), ledgerId));
+            } else {
+                // 创建用户ID
+                predicates.add(cb.equal(root.get("createdByUserId"), createdByUserId));
+            }
+
+            // 交易类型筛选
+            if (type != null) {
+                predicates.add(cb.equal(root.get("type"), type));
+            }
+
+            // 时间范围筛选
+            if (startTime != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("transactionDateTime"), startTime));
+            }
+            if (endTime != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("transactionDateTime"), endTime));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        // 按金额降序
+        Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "amount"));
+
+        // 使用 Slice 避免 count 查询，或者直接 getContent
+        return transactionRepository.findAll(spec, pageable).getContent();
+    }
+
+    /**
+     * 追加交易（创建子交易）
+     * 用于将新的交易追加到现有交易上，实现交易聚合功能
+     * 
+     * @param parentId 父交易ID
+     * @param amount 追加金额
+     * @param description 描述（可选）
+     * @param transactionDateTime 交易时间（可选，默认为当前时间）
+     * @return 创建的子交易实体
+     */
+    public TransactionEntity appendTransaction(Long parentId, BigDecimal amount, 
+                                              String description, LocalDateTime transactionDateTime) {
+        if (parentId == null) {
+            throw new BusinessException("父交易ID不能为空");
+        }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("追加金额必须大于0");
+        }
+
+        // 查询父交易
+        TransactionEntity parentTransaction = findById(parentId);
+        if (parentTransaction.getDeleteTime() != null) {
+            throw new BusinessException("父交易已删除，无法追加");
+        }
+        
+        // 验证权限：只有父交易的创建者可以追加
+        Long currentUserId = UserContext.getCurrentUserId();
+        if (currentUserId == null) {
+            throw new BusinessException("当前用户未登录");
+        }
+        if (!currentUserId.equals(parentTransaction.getCreatedByUserId())) {
+            throw new BusinessException("只有交易创建者可以追加记录");
+        }
+
+        // 创建子交易，继承父交易的属性
+        TransactionEntity childTransaction = new TransactionEntity();
+        childTransaction.setParentId(parentId);
+        childTransaction.setAmount(amount);
+        childTransaction.setDescription(description != null ? description : parentTransaction.getDescription());
+        childTransaction.setType(parentTransaction.getType());
+        childTransaction.setTransactionDateTime(transactionDateTime != null ? transactionDateTime : LocalDateTime.now());
+        childTransaction.setLedgerId(parentTransaction.getLedgerId());
+        childTransaction.setCreatedByUserId(currentUserId);
+        childTransaction.setCategoryId(parentTransaction.getCategoryId());
+        childTransaction.setPaymentMethodId(parentTransaction.getPaymentMethodId());
+        childTransaction.setSource(TransactionSourceEnum.MANUAL.getCode());
+
+        return transactionRepository.save(childTransaction);
+    }
+
+    /**
+     * 查询交易的所有子交易
+     * 
+     * @param parentId 父交易ID
+     * @return 子交易列表
+     */
+    public List<TransactionEntity> findChildTransactions(Long parentId) {
+        if (parentId == null) {
+            throw new BusinessException("父交易ID不能为空");
+        }
+        
+        // 使用 Specification 查询未删除的子交易
+        Specification<TransactionEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.isNull(root.get("deleteTime")));
+            predicates.add(cb.equal(root.get("parentId"), parentId));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        
+        return transactionRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "transactionDateTime"));
+    }
+
+    /**
+     * 计算聚合交易的总金额（父交易 + 所有子交易）
+     * 
+     * @param parentId 父交易ID
+     * @return 总金额
+     */
+    public BigDecimal calculateAggregatedAmount(Long parentId) {
+        TransactionEntity parent = findById(parentId);
+        List<TransactionEntity> children = findChildTransactions(parentId);
+        
+        BigDecimal total = parent.getAmount();
+        for (TransactionEntity child : children) {
+            total = total.add(child.getAmount());
+        }
+        
+        return total;
+    }
+
+    /**
+     * 批量查询父交易的子交易统计信息
+     * @param parentIds 父交易ID列表
+     * @return 统计结果 Map<ParentId, [TotalAmount, Count]>
+     */
+    public java.util.Map<Long, Object[]> getChildStatsByParentIds(List<Long> parentIds) {
+        if (parentIds == null || parentIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+        
+        List<Object[]> results = transactionRepository.countAndSumByParentIds(parentIds);
+        java.util.Map<Long, Object[]> statsMap = new java.util.HashMap<>();
+        
+        for (Object[] row : results) {
+            Long parentId = (Long) row[0];
+            // row[1] is sum(amount), row[2] is count(*)
+            statsMap.put(parentId, new Object[]{row[1], row[2]});
+        }
+        
+        return statsMap;
     }
 }
