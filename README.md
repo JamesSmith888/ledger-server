@@ -23,12 +23,8 @@
 
 ## 🤖 MCP Server 支持
 
-通过 Spring AI 集成 MCP 协议，将业务能力封装为 AI 工具，供 **[mcp-client](https://github.com/JamesSmith888/mcp-client)** 调用。
+通过 Spring AI 集成 MCP 协议，将业务能力封装为 AI 工具。
 
-**核心工具**:
-- **TransactionMCP**: 创建交易、查询交易、统计数据
-- **LedgerMCP**: 账本管理、成员管理
-- **CategoryMCP**: 分类管理与推荐
 
 ---
 
@@ -79,7 +75,6 @@
 ## 🔗 关联项目
 
 -   **移动端 Client**: [LedgerAIClient](https://github.com/JamesSmith888/LedgerAIClient) - 配套的 React Native 移动应用。
--   **MCP Client SDK**: [mcp-client](https://github.com/JamesSmith888/mcp-client) - Java 版 MCP 客户端实现。
 
 ## 📝 许可证
 
