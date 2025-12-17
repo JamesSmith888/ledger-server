@@ -844,6 +844,11 @@ public class TransactionService {
             throw new BusinessException("父交易已删除，无法追加");
         }
         
+        // 检查父交易是否本身就是子交易（防止多层嵌套）
+        if (parentTransaction.getParentId() != null) {
+            throw new BusinessException("不支持在子交易上继续追加，请在原始交易上追加");
+        }
+        
         // 验证权限：只有父交易的创建者可以追加
         Long currentUserId = UserContext.getCurrentUserId();
         if (currentUserId == null) {

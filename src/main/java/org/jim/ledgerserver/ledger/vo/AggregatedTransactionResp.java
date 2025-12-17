@@ -39,9 +39,19 @@ public record AggregatedTransactionResp(
      */
     public record ChildTransactionResp(
         Long id,
-        BigDecimal amount,
         String description,
+        BigDecimal amount,
+        TransactionTypeEnum type,
         LocalDateTime transactionDateTime,
+        Long ledgerId,
+        Long createdByUserId,
+        String createdByUserName,
+        String createdByUserNickname,
+        Long categoryId,
+        Long paymentMethodId,
+        long attachmentCount,
+        TransactionSourceEnum source,
+        Long parentId,
         LocalDateTime createTime
     ) {}
 }

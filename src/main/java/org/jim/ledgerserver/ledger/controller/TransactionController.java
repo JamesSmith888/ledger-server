@@ -128,21 +128,21 @@ public class TransactionController {
 
         // 批量获取用户信息和附件数量，避免N+1查询
         List<TransactionEntity> transactions = page.getContent();
-        
+
         // 收集所有唯一的用户ID
         List<Long> userIds = transactions.stream()
                 .map(TransactionEntity::getCreatedByUserId)
                 .filter(id -> id != null)
                 .distinct()
                 .toList();
-        
+
         // 批量查询用户信息
         java.util.Map<Long, UserEntity> userMap = new java.util.HashMap<>();
         if (!userIds.isEmpty()) {
             List<UserEntity> users = userRepository.findAllById(userIds);
             users.forEach(user -> userMap.put(user.getId(), user));
         }
-        
+
         // 批量查询附件数量
         List<Long> transactionIds = transactions.stream()
                 .map(TransactionEntity::getId)
@@ -249,13 +249,13 @@ public class TransactionController {
         }
 
         TransactionEntity transaction = transactionService.findById(transactionId);
-        
+
         // 验证当前账本的编辑权限
         if (!currentUserId.equals(transaction.getCreatedByUserId()) &&
             !hasTransactionEditPermission(transaction.getLedgerId(), currentUserId)) {
             return JSONResult.fail("无权限移动该交易");
         }
-        
+
         // 验证目标账本的编辑权限
         if (!hasTransactionEditPermission(request.targetLedgerId(), currentUserId)) {
             return JSONResult.fail("无权限将交易移动到目标账本");
@@ -276,7 +276,7 @@ public class TransactionController {
         }
 
         TransactionEntity transaction = transactionService.findById(id);
-        
+
         // 验证权限：创建者或有账本编辑权限的用户可以删除
         if (!currentUserId.equals(transaction.getCreatedByUserId()) &&
             !hasTransactionEditPermission(transaction.getLedgerId(), currentUserId)) {
@@ -301,7 +301,7 @@ public class TransactionController {
         }
 
         TransactionEntity transaction = transactionService.findById(id);
-        
+
         // 验证权限：创建者或有账本编辑权限的用户可以更新
         if (!currentUserId.equals(transaction.getCreatedByUserId()) &&
             !hasTransactionEditPermission(transaction.getLedgerId(), currentUserId)) {
@@ -352,7 +352,7 @@ public class TransactionController {
     private TransactionGetAllResp toTransactionResp(TransactionEntity tx) {
         String createdByUserName = null;
         String createdByUserNickname = null;
-        
+
         // 获取创建人信息
         if (tx.getCreatedByUserId() != null) {
             try {
@@ -365,7 +365,7 @@ public class TransactionController {
                 // 忽略用户查询异常，不影响交易数据返回
             }
         }
-        
+
         // 获取附件数量
         long attachmentCount = 0;
         try {
@@ -373,7 +373,7 @@ public class TransactionController {
         } catch (Exception e) {
             // 忽略附件查询异常，不影响交易数据返回
         }
-        
+
         return new TransactionGetAllResp(
                 tx.getId(),
                 tx.getDescription(),
@@ -402,10 +402,10 @@ public class TransactionController {
             java.util.Map<Long, UserEntity> userMap,
             java.util.Map<Long, Long> attachmentCountMap,
             java.util.Map<Long, Object[]> childStatsMap) {
-        
+
         String createdByUserName = null;
         String createdByUserNickname = null;
-        
+
         // 从批量查询结果中获取用户信息
         if (tx.getCreatedByUserId() != null) {
             UserEntity user = userMap.get(tx.getCreatedByUserId());
@@ -414,20 +414,20 @@ public class TransactionController {
                 createdByUserNickname = user.getNickname();
             }
         }
-        
+
         // 从批量查询结果中获取附件数量
         long attachmentCount = attachmentCountMap.getOrDefault(tx.getId(), 0L);
-        
+
         // 获取子交易统计信息
         BigDecimal aggregatedAmount = tx.getAmount();
         long childCount = 0;
-        
+
         if (childStatsMap != null && childStatsMap.containsKey(tx.getId())) {
             Object[] stats = childStatsMap.get(tx.getId());
             if (stats != null) {
                 BigDecimal childTotal = (BigDecimal) stats[0];
                 Long count = (Long) stats[1];
-                
+
                 if (childTotal != null) {
                     aggregatedAmount = aggregatedAmount.add(childTotal);
                 }
@@ -436,7 +436,7 @@ public class TransactionController {
                 }
             }
         }
-        
+
         return new TransactionGetAllResp(
                 tx.getId(),
                 tx.getDescription(),
@@ -471,7 +471,7 @@ public class TransactionController {
      * 规则：
      * 1. 个人账本：只有所有者可以编辑
      * 2. 共享账本：所有者、管理员、记账员可以编辑
-     * 
+     *
      * @param ledgerId 账本ID
      * @param userId 用户ID
      * @return 是否有编辑权限
@@ -479,17 +479,17 @@ public class TransactionController {
     private boolean hasTransactionEditPermission(Long ledgerId, Long userId) {
         try {
             LedgerEntity ledger = ledgerService.findById(ledgerId);
-            
+
             // 所有者总是有权限
             if (ledger.getOwnerUserId().equals(userId)) {
                 return true;
             }
-            
+
             // 个人账本只有所有者可以编辑
             if (ledger.isPersonal()) {
                 return false;
             }
-            
+
             // 共享账本检查成员权限
             return ledgerMemberService.hasEditPermission(ledgerId, userId);
         } catch (Exception e) {
@@ -513,7 +513,7 @@ public class TransactionController {
         }
 
         TransactionEntity transaction = transactionService.findById(transactionId);
-        
+
         // 验证权限：创建者或有账本编辑权限的用户可以上传附件
         if (!currentUserId.equals(transaction.getCreatedByUserId()) &&
             !hasTransactionEditPermission(transaction.getLedgerId(), currentUserId)) {
@@ -521,7 +521,7 @@ public class TransactionController {
         }
 
         TransactionAttachmentEntity attachment = attachmentService.uploadAttachment(transactionId, file);
-        
+
         AttachmentMetadataResp resp = new AttachmentMetadataResp(
                 attachment.getId(),
                 attachment.getTransactionId(),
@@ -549,7 +549,7 @@ public class TransactionController {
         }
 
         List<TransactionAttachmentEntity> attachments = attachmentService.getAttachmentMetadata(transactionId);
-        
+
         List<AttachmentMetadataResp> respList = attachments.stream()
                 .map(a -> new AttachmentMetadataResp(
                         a.getId(),
@@ -650,13 +650,13 @@ public class TransactionController {
                 .filter(id -> id != null)
                 .distinct()
                 .toList();
-        
+
         java.util.Map<Long, UserEntity> userMap = new java.util.HashMap<>();
         if (!userIds.isEmpty()) {
             List<UserEntity> users = userRepository.findAllById(userIds);
             users.forEach(user -> userMap.put(user.getId(), user));
         }
-        
+
         List<Long> transactionIds = transactions.stream()
                 .map(TransactionEntity::getId)
                 .toList();
@@ -706,7 +706,7 @@ public class TransactionController {
 
         // 查询父交易
         TransactionEntity parent = transactionService.findById(transactionId);
-        
+
         // 验证权限
         if (!currentUserId.equals(parent.getCreatedByUserId()) &&
             !hasTransactionEditPermission(parent.getLedgerId(), currentUserId)) {
@@ -715,46 +715,92 @@ public class TransactionController {
 
         // 查询子交易
         List<TransactionEntity> children = transactionService.findChildTransactions(transactionId);
-        
+
         // 计算聚合金额（直接在内存中计算，避免重复查询）
         BigDecimal aggregatedAmount = parent.getAmount();
         LocalDateTime latestDateTime = parent.getTransactionDateTime();
-        
+
         for (TransactionEntity child : children) {
             aggregatedAmount = aggregatedAmount.add(child.getAmount());
             if (child.getTransactionDateTime().isAfter(latestDateTime)) {
                 latestDateTime = child.getTransactionDateTime();
             }
         }
-        
-        // 获取创建人信息
+
+        // 批量获取所有交易的创建人ID
+        List<Long> allTransactionUserIds = new java.util.ArrayList<>();
+        if (parent.getCreatedByUserId() != null) {
+            allTransactionUserIds.add(parent.getCreatedByUserId());
+        }
+        children.stream()
+                .map(TransactionEntity::getCreatedByUserId)
+                .filter(id -> id != null)
+                .forEach(allTransactionUserIds::add);
+
+        // 批量查询用户信息（避免N+1问题）
+        java.util.Map<Long, UserEntity> userMap = new java.util.HashMap<>();
+        if (!allTransactionUserIds.isEmpty()) {
+            List<UserEntity> users = userRepository.findAllById(allTransactionUserIds.stream().distinct().toList());
+            users.forEach(user -> userMap.put(user.getId(), user));
+        }
+
+        // 批量获取所有交易的附件数量（避免N+1问题）
+        List<Long> allTransactionIds = new java.util.ArrayList<>();
+        allTransactionIds.add(transactionId);
+        children.stream().map(TransactionEntity::getId).forEach(allTransactionIds::add);
+        java.util.Map<Long, Long> attachmentCountMap = attachmentService.countAttachmentsByTransactionIds(allTransactionIds);
+
+        // 获取父交易创建人信息
         String createdByUserName = null;
         String createdByUserNickname = null;
         if (parent.getCreatedByUserId() != null) {
-            userRepository.findById(parent.getCreatedByUserId()).ifPresent(user -> {
-                // 使用临时变量，因为lambda中不能直接赋值给外部变量
-            });
-            UserEntity user = userRepository.findById(parent.getCreatedByUserId()).orElse(null);
+            UserEntity user = userMap.get(parent.getCreatedByUserId());
             if (user != null) {
                 createdByUserName = user.getUsername();
                 createdByUserNickname = user.getNickname();
             }
         }
-        
-        // 获取附件数量
-        long attachmentCount = attachmentService.countAttachments(transactionId);
-        
-        // 构建子交易响应列表
+
+        // 获取父交易附件数量
+        long attachmentCount = attachmentCountMap.getOrDefault(transactionId, 0L);
+
+        // 构建子交易响应列表（使用批量查询的数据）
         List<AggregatedTransactionResp.ChildTransactionResp> childRespList = children.stream()
-                .map(child -> new AggregatedTransactionResp.ChildTransactionResp(
-                        child.getId(),
-                        child.getAmount(),
-                        child.getDescription(),
-                        child.getTransactionDateTime(),
-                        child.getCreateTime()
-                ))
+                .map(child -> {
+                    // 从缓存中获取子交易创建人信息
+                    String childCreatedByUserName = null;
+                    String childCreatedByUserNickname = null;
+                    if (child.getCreatedByUserId() != null) {
+                        UserEntity childUser = userMap.get(child.getCreatedByUserId());
+                        if (childUser != null) {
+                            childCreatedByUserName = childUser.getUsername();
+                            childCreatedByUserNickname = childUser.getNickname();
+                        }
+                    }
+
+                    // 从缓存中获取子交易附件数量
+                    long childAttachmentCount = attachmentCountMap.getOrDefault(child.getId(), 0L);
+
+                    return new AggregatedTransactionResp.ChildTransactionResp(
+                            child.getId(),
+                            child.getDescription(),
+                            child.getAmount(),
+                            TransactionTypeEnum.getByCode(child.getType()),
+                            child.getTransactionDateTime(),
+                            child.getLedgerId(),
+                            child.getCreatedByUserId(),
+                            childCreatedByUserName,
+                            childCreatedByUserNickname,
+                            child.getCategoryId(),
+                            child.getPaymentMethodId(),
+                            childAttachmentCount,
+                            TransactionSourceEnum.getByCode(child.getSource()),
+                            child.getParentId(),
+                            child.getCreateTime()
+                    );
+                })
                 .toList();
-        
+
         // 构建响应
         AggregatedTransactionResp response = new AggregatedTransactionResp(
                 parent.getId(),
