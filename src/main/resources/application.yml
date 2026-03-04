@@ -10,14 +10,14 @@ spring:
         protocol: streamable
   datasource:
     # 配置默认的数据源
-    url:
-    username: ledger_test
-    password:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ledger?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: HikariCP
-      maximum-pool-size: 10 # 连接池最大连接数
-      minimum-idle: 5 # 最小空闲连接数
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10} # 连接池最大连接数
+      minimum-idle: ${DB_POOL_MIN_IDLE:5} # 最小空闲连接数
   jpa:
     hibernate:
       ddl-auto: update # 可以是 none、update、create、create-drop，根据需要选择
@@ -27,9 +27,9 @@ spring:
 # JWT 配置
 jwt:
   # 密钥（生产环境请使用更复杂的密钥，并通过环境变量配置）
-  secret: your-very-secure-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-algorithm-please-change-it-in-production
+  secret: ${JWT_SECRET:your-very-secure-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-algorithm-please-change-it-in-production}
   # 过期时间（单位：毫秒，默认 7 天）
-  expiration: 604800000
+  expiration: ${JWT_EXPIRATION:604800000}
 
 # OAuth 第三方登录配置
 oauth:
