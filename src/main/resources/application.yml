@@ -10,7 +10,7 @@ spring:
         protocol: streamable
   datasource:
     # 配置默认的数据源
-    url: ${DB_URL:jdbc:mysql://localhost:3306/ledger?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ledger?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&connectTimeout=10000&socketTimeout=30000}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -18,6 +18,11 @@ spring:
       pool-name: HikariCP
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10} # 连接池最大连接数
       minimum-idle: ${DB_POOL_MIN_IDLE:5} # 最小空闲连接数
+      connection-timeout: 30000 # 从连接池获取连接的超时时间（ms），超时抛异常而非无限等待
+      idle-timeout: 600000 # 连接在池中空闲超过此时间将被释放（ms，10分钟）
+      max-lifetime: 1800000 # 连接在池中最长存活时间（ms，30分钟），必须小于MySQL wait_timeout
+      keepalive-time: 60000 # 定期 ping 空闲连接防止被 MySQL 关闭（ms，1分钟）
+      connection-test-query: SELECT 1 # 取出连接时执行的验证语句
   jpa:
     hibernate:
       ddl-auto: update # 可以是 none、update、create、create-drop，根据需要选择

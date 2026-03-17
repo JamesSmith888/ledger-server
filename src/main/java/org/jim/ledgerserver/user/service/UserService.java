@@ -279,19 +279,27 @@ public class UserService {
     }
 
     /**
-     * 刷新 token（可选功能）
+     * 刷新 token
+     * 支持续签已过期的 token（只要签名合法），前端无需每次过期都重新登录
      *
-     * @param oldToken 旧的 token
+     * @param oldToken 旧的 token（可以已过期，但必须签名合法）
      * @return 新的登录响应
      */
     public LoginResponse refreshToken(String oldToken) {
-        // 1. 验证旧 token
-        if (!jwtUtil.validateToken(oldToken)) {
-            throw new BusinessException("token 无效或已过期");
+        // 1. 解析 userId（允许 token 过期，但签名非法时会抛异常）
+        Long userId;
+        try {
+            userId = jwtUtil.getUserIdFromExpiredToken(oldToken);
+        } catch (Exception e) {
+            throw new BusinessException("token 无效，请重新登录");
+        }
+        if (userId == null) {
+            throw new BusinessException("token 无效，请重新登录");
         }
 
         // 2. 获取用户信息
-        UserEntity user = getUserByToken(oldToken);
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("用户不存在"));
 
         // 3. 生成新 token
         String newToken = jwtUtil.generateToken(user.getId(), user.getUsername());

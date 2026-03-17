@@ -1,6 +1,7 @@
 package org.jim.ledgerserver.common.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -127,6 +128,22 @@ public class JwtUtil {
             return claims.getExpiration().before(new Date());
         } catch (Exception e) {
             return true;
+        }
+    }
+
+    /**
+     * 从已过期的 token 中解析用户 ID（签名仍然有效时才允许）
+     * 用于 refresh-token 场景：token 过期但签名合法，允许续签
+     *
+     * @param token JWT token（可以已过期）
+     * @return 用户 ID，签名无效时抛异常
+     */
+    public Long getUserIdFromExpiredToken(String token) {
+        try {
+            return parseToken(token).get("userId", Long.class);
+        } catch (ExpiredJwtException e) {
+            // token 过期但签名合法，安全地提取 userId
+            return e.getClaims().get("userId", Long.class);
         }
     }
 }
